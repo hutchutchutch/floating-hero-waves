@@ -1,4 +1,3 @@
-
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
@@ -29,14 +28,28 @@ const FloatingObject: React.FC<ObjectProps> = ({
   const pineappleScene = useMemo(() => {
     const clonedScene = scene.clone();
     
-    // Apply color to all meshes in the scene
+    // Apply color tint to all meshes in the scene while preserving textures
     clonedScene.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
-        child.material = new THREE.MeshStandardMaterial({ 
-          color: color,
-          transparent: true,
-          opacity: 0.7
-        });
+        // Clone the original material to avoid sharing
+        const originalMaterial = child.material.clone();
+        
+        // If the material has a map (texture), preserve it
+        if (originalMaterial instanceof THREE.MeshStandardMaterial) {
+          // Create a new material that preserves textures but adds color tint
+          const newMaterial = new THREE.MeshStandardMaterial({ 
+            map: originalMaterial.map,
+            normalMap: originalMaterial.normalMap,
+            roughnessMap: originalMaterial.roughnessMap,
+            metalnessMap: originalMaterial.metalnessMap,
+            // Apply the color as a tint
+            color: new THREE.Color(color),
+            transparent: true,
+            opacity: 0.8
+          });
+          
+          child.material = newMaterial;
+        }
       }
     });
     
