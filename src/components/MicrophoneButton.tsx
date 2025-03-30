@@ -18,6 +18,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   const [isActive, setIsActive] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const animationRef = useRef<number | null>(null);
+  const lastTranscriptionRef = useRef<string>('');
   const { toast } = useToast();
 
   const handleClick = async () => {
@@ -36,16 +37,19 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
             const normalizedLevel = Math.min(100, Math.max(0, average / 2.55)); // 0-100 scale
             setAudioLevel(normalizedLevel);
             
-            console.log(`Audio data received: ${data.length} bytes, average amplitude: ${average.toFixed(2)}`);
+            if (Math.random() < 0.02) { // Only log ~2% of audio packets to avoid console spam
+              console.log(`Audio data received: ${data.length} bytes, average amplitude: ${average.toFixed(2)}`);
+            }
             onAudioData(data);
           }
         },
         (text) => {
-          if (onTranscription) {
-            console.log(`Transcription received: "${text}"`);
-            onTranscription(text);
+          if (onTranscription && text) {
+            console.log(`Raw transcription received: "${text}"`);
             
-            // We no longer show toast for transcriptions
+            // Only pass new text to the parent component
+            lastTranscriptionRef.current = text;
+            onTranscription(text);
           }
         }
       );
@@ -65,6 +69,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
           title: "Recording Started",
           description: "Microphone is now active",
         });
+        // Reset last transcription when starting a new recording
+        lastTranscriptionRef.current = '';
       }
     } else {
       // Stop recording
@@ -75,6 +81,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         title: "Recording Stopped",
         description: "Microphone is now inactive",
       });
+      // Reset last transcription when stopping
+      lastTranscriptionRef.current = '';
     }
     
     if (onToggle) {

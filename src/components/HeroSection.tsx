@@ -56,7 +56,7 @@ const HeroSection: React.FC = () => {
 
   const handleTranscription = (text: string) => {
     if (text.trim()) {
-      console.log('Transcription received in HeroSection:', text);
+      console.log('New transcription chunk received in HeroSection:', text);
       setTranscribedText(text);
     } else {
       console.log('Empty transcription received');
@@ -70,13 +70,6 @@ const HeroSection: React.FC = () => {
     
     return () => clearTimeout(timer);
   }, []);
-
-  // Log when transcribed text changes
-  useEffect(() => {
-    if (transcribedText) {
-      console.log('Transcribed text updated:', transcribedText);
-    }
-  }, [transcribedText]);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">
@@ -92,6 +85,7 @@ const HeroSection: React.FC = () => {
       {/* Audio waveform visualization */}
       <VoiceWaveform isActive={microphoneActive} audioData={audioData} />
       
+      {/* Display transcribed text as chat bubbles */}
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">

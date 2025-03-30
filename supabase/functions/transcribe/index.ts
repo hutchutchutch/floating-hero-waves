@@ -43,13 +43,13 @@ serve(async (req) => {
     }
     console.log(`Converted to binary: ${bytes.length} bytes`);
 
-    // Prepare audio blob
-    const audioBlob = new Blob([bytes], { type: 'audio/webm' });
-    console.log(`Created audio blob with size: ${audioBlob.size} bytes`);
+    // Prepare audio blob with explicit mimetype that Whisper accepts
+    const audioBlob = new Blob([bytes], { type: 'audio/wav' });
+    console.log(`Created audio blob with size: ${audioBlob.size} bytes and type: ${audioBlob.type}`);
     
     // Create FormData to send to GROQ API
     const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('file', audioBlob, 'audio.wav');
     formData.append('model', 'whisper-large-v3'); 
 
     console.log('Sending audio chunk to GROQ for transcription...');

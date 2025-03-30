@@ -7,25 +7,47 @@ interface TextTranscriptionProps {
 }
 
 const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text }) => {
+  const [allText, setAllText] = useState<string>('');
   const [transcriptionLines, setTranscriptionLines] = useState<string[]>([]);
   
-  // When new text comes in, add it to our lines
+  // Accumulate text during a recording session
   useEffect(() => {
     if (text && isActive) {
-      // Split by periods or natural pauses to create lines
-      const newLines = text.split(/(?<=[.!?])\s+/);
-      setTranscriptionLines(prev => {
-        // Combine with previous lines, but limit to last 5 lines to avoid overcrowding
-        const combined = [...prev, ...newLines];
-        return combined.slice(Math.max(0, combined.length - 5));
+      console.log('Received new transcription text:', text);
+      setAllText(prev => {
+        const combined = prev ? `${prev} ${text}` : text;
+        console.log('Updated accumulated text:', combined);
+        return combined;
       });
     }
 
     // Clear text when microphone is turned off
     if (!isActive) {
+      console.log('Microphone inactive, clearing transcription text');
+      setAllText('');
       setTranscriptionLines([]);
     }
   }, [text, isActive]);
+
+  // Process accumulated text into lines whenever it changes
+  useEffect(() => {
+    if (allText) {
+      // Split by periods or natural pauses to create lines
+      const sentences = allText.split(/(?<=[.!?])\s+/);
+      console.log('Split accumulated text into sentences:', sentences);
+      
+      if (sentences.length === 1 && !sentences[0].match(/[.!?]$/)) {
+        // If we just have one incomplete sentence, show it as is
+        setTranscriptionLines([sentences[0]]);
+      } else {
+        // Filter out any empty lines and limit to the last 5 meaningful sentences
+        const filteredLines = sentences.filter(line => line.trim().length > 0);
+        const lastLines = filteredLines.slice(Math.max(0, filteredLines.length - 5));
+        console.log('Final transcription lines to display:', lastLines);
+        setTranscriptionLines(lastLines);
+      }
+    }
+  }, [allText]);
 
   if (!isActive || transcriptionLines.length === 0) {
     return null;
