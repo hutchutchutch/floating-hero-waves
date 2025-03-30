@@ -107,10 +107,10 @@ const HeroSection: React.FC = () => {
           {showGoAhead && (
             <div className="h-4 mt-4 transition-opacity duration-[2000ms] ease-in-out animate-fade-in">
               <TextShimmer
-                className="text-xl font-medium text-white/10 [--base-color:rgba(255,255,255,0.1)] [--base-gradient-color:#ffffff]"
+                className="text-xl font-medium [--base-color:rgba(255,255,255,0.1)] [--base-gradient-color:#ffffff]"
                 duration={3}
               >
-                Go ahead <Sparkles className="w-5 h-5 text-white/10 inline-block ml-1" />
+                Go ahead <Sparkles className="w-5 h-5 inline-block ml-1" />
               </TextShimmer>
             </div>
           )}
