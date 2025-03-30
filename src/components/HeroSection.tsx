@@ -1,7 +1,7 @@
+
 import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { Sparkles } from 'lucide-react';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
@@ -107,7 +107,7 @@ const HeroSection: React.FC = () => {
                 className="text-xl font-medium [--base-color:rgba(255,255,255,0.1)] [--base-gradient-color:#ffffff]"
                 duration={3}
               >
-                Go ahead <Sparkles className="w-5 h-5 inline-block ml-1" />
+                Go ahead
               </TextShimmer>
             </div>
           )}
