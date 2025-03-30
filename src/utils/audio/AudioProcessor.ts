@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { RATE_LIMIT_ERROR_MARKER } from "./constants";
 import { RateLimiter } from "./RateLimiter";
@@ -104,16 +105,16 @@ export class AudioProcessor {
 
       // Send to our Edge Function
       console.log('🔊 AudioProcessor: Sending audio chunk to Supabase Edge Function...');
-      const { data, error, status } = await supabase.functions.invoke('transcribe', {
+      const { data, error } = await supabase.functions.invoke('transcribe', {
         body: { 
           audio: base64Data,
           apiKey: GROQ_API_KEY
         }
       });
 
-      // Check for rate limit response status (429) from the edge function
-      // Note: status directly comes from the edge function response
-      if ((error && error.status === 429) || (data && data.statusCode === 429)) {
+      // Check for rate limit response
+      // Fix the TypeScript error by checking data.statusCode instead of error.status
+      if ((error && error.message && error.message.includes('429')) || (data && data.statusCode === 429)) {
         console.error('🔊 AudioProcessor: RATE LIMIT ERROR (429) from transcribe function');
         
         // Apply rate limiting logic
