@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface TextShimmerProps {
-  children: string;
+  children: React.ReactNode;
   as?: React.ElementType;
   className?: string;
   duration?: number;
@@ -22,7 +22,9 @@ export function TextShimmer({
   const MotionComponent = motion(Component as keyof JSX.IntrinsicElements);
 
   const dynamicSpread = useMemo(() => {
-    return children.length * spread;
+    // Use a default value for spread calculation when children is not a string
+    const contentLength = typeof children === 'string' ? children.length : 10;
+    return contentLength * spread;
   }, [children, spread]);
 
   return (
