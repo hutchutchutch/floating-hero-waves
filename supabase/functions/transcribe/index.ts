@@ -57,13 +57,17 @@ serve(async (req) => {
     const sampleBytes = bytes.slice(0, Math.min(20, bytes.length));
     console.log("Sample of binary data (first few bytes):", Array.from(sampleBytes));
 
-    // Prepare audio blob with explicit mimetype that Whisper accepts
-    const audioBlob = new Blob([bytes], { type: 'audio/wav' });
-    console.log(`Created audio blob with size: ${audioBlob.size} bytes and type: ${audioBlob.type}`);
-    
     // Create FormData to send to GROQ API
     const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.wav');
+    
+    // Fix: Use proper audio/webm MIME type instead of audio/wav
+    // Whisper expects webm, mp3, mp4, mpeg, mpga, m4a, wav, or webm formats
+    const audioBlob = new Blob([bytes], { type: 'audio/webm' });
+    
+    console.log(`Created audio blob with size: ${audioBlob.size} bytes and type: ${audioBlob.type}`);
+    
+    // Name should end with .webm to ensure proper format detection
+    formData.append('file', audioBlob, 'audio.webm');
     formData.append('model', 'whisper-large-v3'); 
 
     console.log('Sending audio chunk to GROQ for transcription...');
@@ -77,7 +81,11 @@ serve(async (req) => {
       body: formData
     });
 
+    // Log detailed response information
+    console.log(`GROQ API response status: ${response.status} ${response.statusText}`);
+    
     const responseText = await response.text();
+    console.log(`GROQ API response body (preview): ${responseText.substring(0, 200)}...`);
     
     // Check specifically for 429 rate limit errors
     if (response.status === 429) {
@@ -91,6 +99,22 @@ serve(async (req) => {
         }),
         {
           status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    // Handle 400 Bad Request errors specifically
+    if (response.status === 400) {
+      console.error(`GROQ API error (400): ${responseText}`);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid audio format", 
+          statusCode: 400,
+          message: "The audio format was not recognized by the transcription service."
+        }),
+        {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );

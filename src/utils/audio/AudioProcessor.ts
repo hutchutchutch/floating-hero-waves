@@ -68,9 +68,9 @@ export class AudioProcessor {
       this.recordedChunks = this.recordedChunks.slice(-maxChunks);
     }
     
-    // Create a combined blob from all chunks
+    // Create a combined blob from all chunks - explicitly set MIME type
     const combinedBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
-    console.log(`🔊 AudioProcessor: Created combined blob with size: ${combinedBlob.size} bytes`);
+    console.log(`🔊 AudioProcessor: Created combined blob with size: ${combinedBlob.size} bytes and type: ${combinedBlob.type}`);
     
     // Process the combined audio
     this.rateLimiter.recordSuccess();
@@ -113,7 +113,6 @@ export class AudioProcessor {
       });
 
       // Check for rate limit response
-      // Fix the TypeScript error by checking data.statusCode instead of error.status
       if ((error && error.message && error.message.includes('429')) || (data && data.statusCode === 429)) {
         console.error('🔊 AudioProcessor: RATE LIMIT ERROR (429) from transcribe function');
         
@@ -124,6 +123,17 @@ export class AudioProcessor {
         if (shouldNotify && this.onTranscriptionCallback) {
           this.onTranscriptionCallback(RATE_LIMIT_ERROR_MARKER);
         }
+        
+        return;
+      }
+
+      // Check for audio format errors (400 Bad Request)
+      if ((error && error.message && error.message.includes('400')) || (data && data.statusCode === 400)) {
+        console.error('🔊 AudioProcessor: AUDIO FORMAT ERROR (400) from transcribe function');
+        console.error('🔊 AudioProcessor: Audio format was rejected by the transcription service');
+        
+        // For now, just log the error but don't notify the user
+        // We could add a specific notification if needed
         
         return;
       }
