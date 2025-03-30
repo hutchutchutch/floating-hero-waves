@@ -7,7 +7,7 @@ import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
 import TextTranscription from './TextTranscription';
 import { useToast } from "@/components/ui/use-toast";
-import { GROQ_API_KEY } from '../config/apiKeys';
+import { isGroqKeyConfigured } from '../config/apiKeys';
 
 const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
@@ -21,10 +21,10 @@ const HeroSection: React.FC = () => {
     
     if (!isActive) {
       setTranscribedText('');
-    } else if (GROQ_API_KEY === "YOUR_PUBLISHABLE_GROQ_API_KEY") {
+    } else if (!isGroqKeyConfigured()) {
       toast({
         title: "GROQ API Key Missing",
-        description: "Please update the API key in src/config/apiKeys.ts",
+        description: "Please add VITE_GROQ_API_KEY to your .env file",
         variant: "destructive",
         duration: 5000
       });
@@ -71,7 +71,7 @@ const HeroSection: React.FC = () => {
 
   // Check API key on component mount
   useEffect(() => {
-    if (GROQ_API_KEY === "YOUR_PUBLISHABLE_GROQ_API_KEY") {
+    if (!isGroqKeyConfigured()) {
       console.warn("GROQ API Key not configured. WebRTC streaming will not work.");
     }
   }, []);

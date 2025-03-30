@@ -1,5 +1,5 @@
 
-import { GROQ_API_KEY } from "../config/apiKeys";
+import { GROQ_API_KEY, isGroqKeyConfigured } from "../config/apiKeys";
 
 class WebRTCHandler {
   private connection: RTCPeerConnection | null = null;
@@ -68,8 +68,8 @@ class WebRTCHandler {
     }
 
     try {
-      if (!GROQ_API_KEY) {
-        console.error('GROQ API key not configured');
+      if (!isGroqKeyConfigured()) {
+        console.error('GROQ API key not configured in .env file');
         return false;
       }
 
