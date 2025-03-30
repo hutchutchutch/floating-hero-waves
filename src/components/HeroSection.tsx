@@ -2,10 +2,12 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import { Sparkle } from 'lucide-react';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
 import TextTranscription from './TextTranscription';
+import { TextShimmer } from '@/components/ui/text-shimmer';
 import { useToast } from "@/components/ui/use-toast";
 import { isGroqKeyConfigured } from '../config/apiKeys';
 
@@ -92,8 +94,14 @@ const HeroSection: React.FC = () => {
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">
         <div className="flex flex-col items-center">
           <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
-          <div className="h-4"> {/* Fixed height spacer */}
-            <FadingText text="Go ahead." />
+          <div className="h-4 flex items-center gap-2 mt-4">
+            <TextShimmer
+              className="text-xl text-white font-medium [--base-color:#ffffff] [--base-gradient-color:#5924ed]"
+              duration={3}
+            >
+              Go ahead
+            </TextShimmer>
+            <Sparkle className="w-5 h-5 text-cosmic-purple animate-pulse-soft" />
           </div>
         </div>
       </div>
