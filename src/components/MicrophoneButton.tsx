@@ -28,6 +28,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const hasStartedSessionRef = useRef<boolean>(false);
+  const sessionIdRef = useRef<string | null>(null);
 
   // Handle starting a new recording session
   const startRecordingSession = async () => {
@@ -36,7 +37,14 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     // Prevent multiple session starts
     if (hasStartedSessionRef.current) {
       console.log('🎤 Session already started, skipping');
-      return null;
+      return sessionIdRef.current;
+    }
+    
+    // End any previous session
+    if (sessionIdRef.current) {
+      console.log('🎤 Ending previous session before starting new one');
+      await recordingManager.endSession();
+      sessionIdRef.current = null;
     }
     
     hasStartedSessionRef.current = true;
@@ -44,10 +52,12 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     
     if (sessionId) {
       console.log('🎤 New session started with ID:', sessionId);
+      sessionIdRef.current = sessionId;
       return sessionId;
     } else {
       console.error('🎤 Failed to start new recording session');
       hasStartedSessionRef.current = false;
+      sessionIdRef.current = null;
       toast({
         title: "Session Error",
         description: "Could not start a new recording session",
@@ -62,6 +72,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     console.log('🎤 Ending current recording session');
     await recordingManager.endSession();
     hasStartedSessionRef.current = false;
+    sessionIdRef.current = null;
     
     if (sessionTimerRef.current) {
       clearTimeout(sessionTimerRef.current);
@@ -80,20 +91,24 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     setIsProcessing(true);
     
     try {
+      // Check if we have a session ID, if not try to get it
+      if (!sessionIdRef.current) {
+        console.log('🎤 No session ID, attempting to start a new session');
+        const sessionId = await startRecordingSession();
+        if (!sessionId) {
+          console.error('🎤 Failed to create session for AI response');
+          setIsProcessing(false);
+          return;
+        }
+      }
+      
       // Get the current transcription ID
       const transcriptions = await recordingManager.getSessionTranscriptions();
       
       console.log('🎤 Found transcriptions:', transcriptions.length);
       
       if (transcriptions.length === 0) {
-        console.error('🎤 No transcriptions found for current session');
-        
-        // Current session might have ended, try to start a new one and save the transcription directly
-        const sessionId = await startRecordingSession();
-        if (!sessionId) {
-          setIsProcessing(false);
-          return;
-        }
+        console.log('🎤 No transcriptions found, saving transcription first');
         
         // Save the transcription manually
         const savedTranscription = await recordingManager.saveTranscription(text, 5.0);
@@ -181,7 +196,12 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       console.log('🎤 Attempting to start recording...');
       
       // Start a new session
-      await startRecordingSession();
+      const sessionId = await startRecordingSession();
+      if (!sessionId) {
+        console.error('🎤 Failed to start session, cannot proceed with recording');
+        setIsActive(false);
+        return;
+      }
       
       const success = await audioRecorder.startRecording(
         (data) => {

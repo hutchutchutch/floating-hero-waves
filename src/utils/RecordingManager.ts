@@ -28,6 +28,12 @@ class RecordingManager {
   async startNewSession(): Promise<string | null> {
     console.log('📝 RecordingManager: Starting new session');
     try {
+      // Clear any existing session
+      if (this.currentSessionId) {
+        console.log('📝 RecordingManager: Clearing existing session:', this.currentSessionId);
+        await this.endSession();
+      }
+      
       // Initialize visitor session
       await visitorSessionManager.initialize();
       
@@ -35,7 +41,7 @@ class RecordingManager {
       this.useLocalStorage = visitorSessionManager.isUsingLocalOnlyMode();
       if (this.useLocalStorage) {
         console.log('📝 RecordingManager: Using local storage mode due to RLS restrictions');
-        const localId = 'local-session-' + Date.now();
+        const localId = 'local-session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
         this.currentSessionId = localId;
         this.clearLocalData();
         localStorage.setItem('current_session_id', localId);
@@ -45,44 +51,33 @@ class RecordingManager {
       }
       
       // Get or create session using visitor ID
-      this.currentSessionId = await visitorSessionManager.getOrCreateSessionId();
-      
-      if (this.currentSessionId) {
-        this.sequenceCounter = 0;
-        console.log('📝 RecordingManager: New session started with ID:', this.currentSessionId);
-        return this.currentSessionId;
-      }
-      
-      // Fall back to previous method if visitor session fails
-      // Check if user is authenticated
-      const { data: authData } = await supabase.auth.getSession();
-      const userId = authData?.session?.user?.id;
-      
-      // Create session object
-      const sessionData: any = {};
-      if (userId) {
-        sessionData.user_id = userId;
-      }
-      
-      // Add visitor ID if available
       const visitorId = visitorSessionManager.getVisitorId();
-      if (visitorId) {
-        sessionData.visitor_id = visitorId;
+      
+      if (!visitorId) {
+        console.error('📝 RecordingManager: No visitor ID available');
+        this.useLocalStorage = true;
+        return this.startNewSession(); // Recursive call with local storage mode
       }
       
+      console.log('📝 RecordingManager: Creating session for visitor:', visitorId);
+      
+      // Create session directly
       const { data, error } = await supabase
         .from('sessions')
-        .insert(sessionData)
+        .insert({
+          visitor_id: visitorId,
+          status: 'active'
+        })
         .select();
         
       if (error) {
         console.error('📝 RecordingManager: Error starting session:', error);
         
         // If this is a permissions error, switch to local storage
-        if (error.code === '42501') {
+        if (error.code === '42501' || error.message.includes('permission denied')) {
           console.log('📝 RecordingManager: Permission denied, switching to local storage mode');
           this.useLocalStorage = true;
-          const localId = 'local-session-' + Date.now();
+          const localId = 'local-session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
           this.currentSessionId = localId;
           this.clearLocalData();
           localStorage.setItem('current_session_id', localId);
@@ -106,7 +101,7 @@ class RecordingManager {
       
       // Fall back to local storage on error
       this.useLocalStorage = true;
-      const localId = 'local-session-' + Date.now();
+      const localId = 'local-session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
       this.currentSessionId = localId;
       this.clearLocalData();
       localStorage.setItem('current_session_id', localId);
@@ -159,17 +154,7 @@ class RecordingManager {
     }
     
     try {
-      // Try to end session using visitor session manager first
-      const visitorSessionResult = await visitorSessionManager.endCurrentSession();
-      
-      if (visitorSessionResult) {
-        console.log('📝 RecordingManager: Session ended via visitor session manager:', this.currentSessionId);
-        this.currentSessionId = null;
-        this.sequenceCounter = 0;
-        return true;
-      }
-      
-      // Fall back to direct update if needed
+      // Fall back to direct update
       const { error } = await supabase
         .from('sessions')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
@@ -177,6 +162,7 @@ class RecordingManager {
         
       if (error) {
         console.error('📝 RecordingManager: Error ending session:', error);
+        // Don't null out the session ID on error - we'll try again
         return false;
       }
       
@@ -194,19 +180,26 @@ class RecordingManager {
    * Saves a transcription to the database
    */
   async saveTranscription(transcriptionText: string, audioDuration?: number): Promise<TranscriptionResult | null> {
+    // Make sure we have a session ID
     const sessionId = await this.getOrCreateSessionId();
     
     if (!sessionId) {
       console.error('📝 RecordingManager: No session ID available, cannot save transcription');
-      return null;
+      // Try to create a new session one more time
+      const newSessionId = await this.startNewSession();
+      if (!newSessionId) {
+        return null;
+      }
     }
+    
+    console.log('📝 RecordingManager: Saving transcription for session:', this.currentSessionId);
     
     // For local storage mode, save to memory and localStorage
     if (this.useLocalStorage) {
       const localId = `local-trans-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const transcription = {
         id: localId,
-        session_id: sessionId,
+        session_id: this.currentSessionId,
         sequence_number: this.sequenceCounter++,
         content: transcriptionText,
         audio_duration: audioDuration || null,
@@ -230,7 +223,7 @@ class RecordingManager {
       const { data, error } = await supabase
         .from('transcriptions')
         .insert({
-          session_id: sessionId,
+          session_id: this.currentSessionId,
           sequence_number: this.sequenceCounter++,
           content: transcriptionText,
           audio_duration: audioDuration || null,
@@ -242,7 +235,7 @@ class RecordingManager {
         console.error('📝 RecordingManager: Error saving transcription:', error);
         
         // If this is a permissions error, switch to local storage mode
-        if (error.code === '42501') {
+        if (error.code === '42501' || error.message.includes('permission denied')) {
           console.log('📝 RecordingManager: Permission denied saving transcription, switching to local storage mode');
           this.useLocalStorage = true;
           return this.saveTranscription(transcriptionText, audioDuration);

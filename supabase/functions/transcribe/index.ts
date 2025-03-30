@@ -18,11 +18,15 @@ serve(async (req) => {
 
   try {
     const requestData = await req.json();
-    const { audio, apiKey, visitorId } = requestData;
+    const { audio, apiKey, visitorId, sessionId } = requestData;
     
-    // Log visitor ID if provided
+    // Log visitor ID and session ID if provided
     if (visitorId) {
       console.log("Request from visitor ID:", visitorId);
+    }
+    
+    if (sessionId) {
+      console.log("Request for session ID:", sessionId);
     }
     
     // Use API key from request or fall back to environment variable with the updated name
@@ -73,6 +77,8 @@ serve(async (req) => {
     // Name should end with .webm to ensure proper format detection
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('model', 'whisper-large-v3'); 
+    // Add detect language parameter
+    formData.append('language', 'en');
 
     console.log('Sending audio chunk to GROQ for transcription...');
     
@@ -157,7 +163,8 @@ serve(async (req) => {
           wordCount: result.text.split(' ').length,
           audioBytes: bytes.length,
           timestamp: new Date().toISOString(),
-          visitorId: visitorId || null
+          visitorId: visitorId || null,
+          sessionId: sessionId || null
         }
       };
       

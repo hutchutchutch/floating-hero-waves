@@ -12,6 +12,7 @@ export class AudioProcessor {
   private chunkCounter = 0;
   private rateLimiter: RateLimiter;
   private lastTranscriptionText: string = '';
+  private processingError: boolean = false;
   
   constructor(
     private readonly onTranscriptionCallback: ((text: string) => void) | null = null
@@ -44,6 +45,7 @@ export class AudioProcessor {
   public clearChunks(): void {
     this.recordedChunks = [];
     this.chunkCounter = 0;
+    this.processingError = false;
   }
   
   /**
@@ -62,6 +64,13 @@ export class AudioProcessor {
       return false;
     }
     
+    // If we had a processing error, we'll reduce the chunk count to try with less data
+    if (this.processingError) {
+      maxChunks = Math.max(5, Math.floor(maxChunks / 2));
+      console.log(`🔊 AudioProcessor: Reducing chunks due to previous error, using max ${maxChunks} chunks`);
+      this.processingError = false;
+    }
+    
     console.log(`🔊 AudioProcessor: Processing ${this.recordedChunks.length} audio chunks for transcription`);
     
     // Keep only the most recent chunks (to reduce payload size)
@@ -76,8 +85,14 @@ export class AudioProcessor {
     
     // Process the combined audio
     this.rateLimiter.recordSuccess();
-    await this.processAudioChunk(combinedBlob);
-    return true;
+    try {
+      await this.processAudioChunk(combinedBlob);
+      return true;
+    } catch (error) {
+      console.error('🔊 AudioProcessor: Error during audio processing:', error);
+      this.processingError = true;
+      return false;
+    }
   }
   
   /**
@@ -96,6 +111,10 @@ export class AudioProcessor {
       const bytes = new Uint8Array(arrayBuffer);
       console.log(`🔊 AudioProcessor: Converted to Uint8Array with ${bytes.length} bytes`);
       
+      // Verify the first bytes to ensure it's a valid audio format
+      const firstBytes = bytes.slice(0, 16);
+      console.log(`🔊 AudioProcessor: First bytes:`, Array.from(firstBytes));
+      
       let binary = '';
       const len = bytes.byteLength;
       for (let i = 0; i < len; i++) {
@@ -110,13 +129,19 @@ export class AudioProcessor {
         console.warn('🔊 AudioProcessor: VITE_GROQ_API_KEY not found in environment variables');
       }
 
+      // Get visitor ID for tracking
+      const visitorId = localStorage.getItem('visitor_id') || '';
+      const sessionId = recordingManager.getCurrentSessionId();
+      console.log(`🔊 AudioProcessor: Using visitor ID: ${visitorId}, session ID: ${sessionId}`);
+
       // Send to our Edge Function
       console.log('🔊 AudioProcessor: Sending audio chunk to Supabase Edge Function...');
       const { data, error } = await supabase.functions.invoke('transcribe', {
         body: { 
           audio: base64Data,
           apiKey: GROQ_API_KEY,
-          visitorId: localStorage.getItem('visitor_id')
+          visitorId: visitorId,
+          sessionId: sessionId
         }
       });
 
@@ -139,6 +164,7 @@ export class AudioProcessor {
       if ((error && error.message && error.message.includes('400')) || (data && data.statusCode === 400)) {
         console.error('🔊 AudioProcessor: AUDIO FORMAT ERROR (400) from transcribe function');
         console.error('🔊 AudioProcessor: Audio format was rejected by the transcription service');
+        this.processingError = true;
         
         // For now, just log the error but don't notify the user
         // We could add a specific notification if needed
@@ -173,6 +199,8 @@ export class AudioProcessor {
       }
     } catch (error) {
       console.error('🔊 AudioProcessor: Error processing audio chunk:', error);
+      this.processingError = true;
+      throw error; // Rethrow to mark the processing as failed
     }
   }
   
@@ -180,6 +208,27 @@ export class AudioProcessor {
    * Process a transcription result and store it
    */
   private async processTranscriptionResult(text: string, estimatedDurationMs: number): Promise<void> {
+    // Get the session ID first to ensure it exists
+    const sessionId = recordingManager.getCurrentSessionId();
+    
+    if (!sessionId) {
+      console.error('🔊 AudioProcessor: No session ID available for saving transcription');
+      // Try to create a new session
+      const newSessionId = await recordingManager.startNewSession();
+      if (!newSessionId) {
+        console.error('🔊 AudioProcessor: Failed to create new session for transcription');
+        // Still call the callback with the text so UI updates
+        if (this.onTranscriptionCallback) {
+          this.onTranscriptionCallback(text);
+        }
+        return;
+      }
+      console.log('🔊 AudioProcessor: Created new session with ID:', newSessionId);
+    }
+    
+    console.log('🔊 AudioProcessor: Processing transcription result:', text);
+    console.log('🔊 AudioProcessor: Current session ID:', sessionId);
+    
     // Save the transcription to the database if different from last one
     if (text !== this.lastTranscriptionText) {
       console.log('🔊 AudioProcessor: Saving new transcription to database or local storage');
@@ -194,6 +243,8 @@ export class AudioProcessor {
           (recordingManager.isUsingLocalStorageMode() ? 'local storage' : 'database') + 
           ' for transcription storage');
         this.lastTranscriptionText = text;
+      } else {
+        console.error('🔊 AudioProcessor: Failed to save transcription');
       }
     } else {
       console.log('🔊 AudioProcessor: Skipping save, transcription unchanged');

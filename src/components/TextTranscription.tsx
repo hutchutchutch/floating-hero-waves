@@ -33,34 +33,45 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
           return text;
         }
         
-        // Check for significant overlap - improved algorithm
+        // If previous text contains the new text, it might be a regression
+        // This happens when a longer transcription was received and then a shorter one
+        if (prev.includes(text) && prev.length > text.length) {
+          console.log('🔍 TextTranscription - New text is subset of previous, keeping previous');
+          return prev;
+        }
+        
+        // Advanced overlap detection
         let longestOverlapLength = 0;
         const minLength = Math.min(prev.length, text.length);
         
         // Check for overlap at the end of prev with the start of text
-        for (let overlapLength = Math.min(40, minLength); overlapLength >= 5; overlapLength--) {
+        for (let overlapLength = Math.min(100, minLength); overlapLength >= 5; overlapLength--) {
           const prevEnd = prev.slice(-overlapLength);
           const textStart = text.slice(0, overlapLength);
           
           if (prevEnd === textStart) {
             longestOverlapLength = overlapLength;
+            console.log(`🔍 TextTranscription - Found overlap of ${longestOverlapLength} characters`);
             break;
           }
         }
         
         if (longestOverlapLength > 0) {
-          console.log(`🔍 TextTranscription - Found overlap of ${longestOverlapLength} characters`);
+          // If we found an overlap, join them together at the overlap point
           return prev + text.substring(longestOverlapLength);
         }
         
-        // If no significant overlap and not a complete update,
-        // check if the new text is contained within the previous text
-        if (prev.includes(text)) {
-          console.log('🔍 TextTranscription - New text is subset of previous, keeping previous');
-          return prev;
+        // If the previous content splits by sentence, check if the new text
+        // starts with any of those sentences and build from there
+        const sentences = prev.split(/[.!?]+\s*/g).filter(s => s.length > 10);
+        for (const sentence of sentences) {
+          if (text.startsWith(sentence)) {
+            console.log('🔍 TextTranscription - New transcription starts with existing sentence');
+            return text;
+          }
         }
         
-        // Append with a space to avoid words running together
+        // No specific pattern detected, append with a space
         console.log('🔍 TextTranscription - No significant overlap, appending with space');
         return `${prev} ${text}`;
       });
