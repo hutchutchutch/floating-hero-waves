@@ -40,7 +40,7 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
           return prev;
         }
         
-        // Advanced overlap detection
+        // Advanced overlap detection - looking for shared content between previous and new text
         let longestOverlapLength = 0;
         const minLength = Math.min(prev.length, text.length);
         
