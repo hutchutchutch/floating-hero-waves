@@ -1,4 +1,3 @@
-
 import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -11,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import VoiceWaveform from './VoiceWaveform';
 import WrenchIcon from './WrenchIcon';
 import { ResponseResult } from '@/utils/RecordingManager';
+import visitorSessionManager from '@/utils/VisitorSessionManager';
 
 const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
@@ -31,7 +31,6 @@ const HeroSection: React.FC = () => {
       setTranscribedText('');
       setHasTranscribedContent(false);
     } else {
-      // Show audio collection started toast
       toast({
         title: "Audio Collection Started",
         description: "Speak clearly into your microphone.",
@@ -41,15 +40,13 @@ const HeroSection: React.FC = () => {
   };
 
   const handleAudioData = (data: Uint8Array) => {
-    // Log audio data size without spamming the console
-    if (Math.random() < 0.02) { // Only log ~2% of audio packets
+    if (Math.random() < 0.02) {
       console.log(`Audio data received: ${data.length} bytes, max amplitude: ${Math.max(...data)}`);
     }
     setAudioData(new Uint8Array(data));
   };
 
   const handleTranscription = (text: string) => {
-    // Special case for rate limit errors
     if (text === "__RATE_LIMIT_ERROR__") {
       console.warn("Rate limit exceeded for transcription API");
       toast({
@@ -64,7 +61,6 @@ const HeroSection: React.FC = () => {
     if (text.trim()) {
       console.log('New transcription chunk received in HeroSection:', text);
       setTranscribedText(text);
-      // If we have any meaningful transcription content, show the wrench icon
       if (text.length > 3) {
         console.log('Setting hasTranscribedContent to true because we received text:', text);
         setHasTranscribedContent(true);
@@ -78,10 +74,9 @@ const HeroSection: React.FC = () => {
     console.log('AI response received:', response);
     setAiResponse(response);
     
-    // Play audio if available
     if (response.audio_url) {
       if (audioRef.current) {
-        audioRef.current.pause(); // Stop any currently playing audio
+        audioRef.current.pause();
         audioRef.current.src = response.audio_url;
         
         console.log('Playing audio from URL:', response.audio_url);
@@ -110,7 +105,6 @@ const HeroSection: React.FC = () => {
     });
   };
 
-  // Handle audio playback events
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
@@ -135,7 +129,6 @@ const HeroSection: React.FC = () => {
         });
       };
       
-      // Add loadeddata event to verify the audio is loaded
       audioRef.current.onloadeddata = () => {
         console.log('Audio data loaded successfully');
       };
@@ -157,6 +150,19 @@ const HeroSection: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const initVisitorTracking = async () => {
+      try {
+        const visitorId = await visitorSessionManager.initialize();
+        console.log('Visitor session initialized with ID:', visitorId);
+      } catch (error) {
+        console.error('Error initializing visitor session:', error);
+      }
+    };
+
+    initVisitorTracking();
+  }, []);
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">
       <div className="absolute inset-0">
@@ -168,13 +174,10 @@ const HeroSection: React.FC = () => {
         </Canvas>
       </div>
       
-      {/* Audio waveform visualization */}
       <VoiceWaveform isActive={microphoneActive} audioData={audioData} />
       
-      {/* Display transcribed text as a single message */}
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
-      {/* Display AI response */}
       {aiResponse && (
         <div className="absolute left-0 right-0 top-16 overflow-y-auto max-h-60 flex flex-col items-center">
           <div className="max-w-2xl w-full px-4 mb-4">
@@ -192,7 +195,6 @@ const HeroSection: React.FC = () => {
         </div>
       )}
       
-      {/* Wrench icon that appears after first transcription */}
       <WrenchIcon visible={hasTranscribedContent} />
       
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">

@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import visitorSessionManager from "./VisitorSessionManager";
 
 export interface TranscriptionResult {
   id: string;
@@ -25,6 +26,19 @@ class RecordingManager {
   async startNewSession(): Promise<string | null> {
     console.log('📝 RecordingManager: Starting new session');
     try {
+      // Initialize visitor session
+      await visitorSessionManager.initialize();
+      
+      // Get or create session using visitor ID
+      this.currentSessionId = await visitorSessionManager.getOrCreateSessionId();
+      
+      if (this.currentSessionId) {
+        this.sequenceCounter = 0;
+        console.log('📝 RecordingManager: New session started with ID:', this.currentSessionId);
+        return this.currentSessionId;
+      }
+      
+      // Fall back to previous method if visitor session fails
       // Check if user is authenticated
       const { data: authData } = await supabase.auth.getSession();
       const userId = authData?.session?.user?.id;
@@ -33,6 +47,12 @@ class RecordingManager {
       const sessionData: any = {};
       if (userId) {
         sessionData.user_id = userId;
+      }
+      
+      // Add visitor ID if available
+      const visitorId = visitorSessionManager.getVisitorId();
+      if (visitorId) {
+        sessionData.visitor_id = visitorId;
       }
       
       const { data, error } = await supabase
@@ -79,6 +99,17 @@ class RecordingManager {
     }
     
     try {
+      // Try to end session using visitor session manager first
+      const visitorSessionResult = await visitorSessionManager.endCurrentSession();
+      
+      if (visitorSessionResult) {
+        console.log('📝 RecordingManager: Session ended via visitor session manager:', this.currentSessionId);
+        this.currentSessionId = null;
+        this.sequenceCounter = 0;
+        return true;
+      }
+      
+      // Fall back to direct update if needed
       const { error } = await supabase
         .from('sessions')
         .update({ status: 'completed', updated_at: new Date().toISOString() })

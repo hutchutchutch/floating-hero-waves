@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      anonymous_sessions: {
+        Row: {
+          first_seen_at: string | null
+          id: string
+          ip_address: string | null
+          last_seen_at: string | null
+          user_agent: string | null
+          visit_count: number | null
+          visitor_id: string
+        }
+        Insert: {
+          first_seen_at?: string | null
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string | null
+          user_agent?: string | null
+          visit_count?: number | null
+          visitor_id: string
+        }
+        Update: {
+          first_seen_at?: string | null
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string | null
+          user_agent?: string | null
+          visit_count?: number | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       responses: {
         Row: {
           audio_url: string | null
@@ -58,6 +88,7 @@ export type Database = {
           status: string | null
           updated_at: string | null
           user_id: string | null
+          visitor_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -65,6 +96,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
+          visitor_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -72,6 +104,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
+          visitor_id?: string | null
         }
         Relationships: []
       }

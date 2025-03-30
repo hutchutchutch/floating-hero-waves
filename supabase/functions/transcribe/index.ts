@@ -4,7 +4,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-visitor-id',
 }
 
 serve(async (req) => {
@@ -18,7 +18,12 @@ serve(async (req) => {
 
   try {
     const requestData = await req.json();
-    const { audio, apiKey } = requestData;
+    const { audio, apiKey, visitorId } = requestData;
+    
+    // Log visitor ID if provided
+    if (visitorId) {
+      console.log("Request from visitor ID:", visitorId);
+    }
     
     // Use API key from request or fall back to environment variable with the updated name
     const GROQ_API_KEY = apiKey || Deno.env.get('VITE_GROQ_API_KEY') || Deno.env.get('GROQ_API_KEY');
@@ -151,7 +156,8 @@ serve(async (req) => {
           textLength: result.text.length,
           wordCount: result.text.split(' ').length,
           audioBytes: bytes.length,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          visitorId: visitorId || null
         }
       };
       
