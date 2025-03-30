@@ -16,6 +16,11 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
       console.log('🔍 TextTranscription - Received new transcription text:', text);
       console.log('🔍 TextTranscription - Current accumulated text:', allText);
       
+      // Debug if we're getting "Thank you." by default
+      if (text === "Thank you.") {
+        console.warn('🔍 TextTranscription - Detected "Thank you." message - this may be a default response');
+      }
+      
       setAllText(prev => {
         const combined = prev ? `${prev} ${text}` : text;
         console.log('🔍 TextTranscription - Updated accumulated text:', combined);

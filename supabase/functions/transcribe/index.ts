@@ -78,6 +78,13 @@ serve(async (req) => {
     try {
       const result = JSON.parse(responseText);
       console.log('Transcription result:', result);
+      
+      // Log if we're getting "Thank you." as a default response
+      if (result.text === "Thank you." || result.text.includes("Thank you")) {
+        console.warn('Detected "Thank you" in response. This might be a default fallback from the API.');
+        console.warn('Full audio data length:', bytes.length, 'bytes');
+        console.warn('Audio response quality may be poor or silence was detected.');
+      }
 
       return new Response(
         JSON.stringify({ text: result.text }),
