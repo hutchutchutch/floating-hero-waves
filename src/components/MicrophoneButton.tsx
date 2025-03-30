@@ -59,8 +59,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioDa
         ) : (
           <Mic className="h-1/2 w-1/2 text-white" />
         )}
-        <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 md:top-3 md:right-3 lg:top-4 lg:right-4">
-          <Sparkle className="h-4 w-4 sm:h-5 sm:w-5 text-white opacity-80" />
+        <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 lg:top-2.5 lg:right-2.5">
+          <Sparkle className="h-2 w-2 sm:h-2.5 sm:w-2.5 text-white opacity-80" />
         </div>
       </button>
     </div>
