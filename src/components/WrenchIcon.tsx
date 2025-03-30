@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Wrench } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import KnowledgeGraph from './KnowledgeGraph';
 
 interface WrenchIconProps {
   visible: boolean;
@@ -39,16 +41,23 @@ const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
   if (!visible) return null;
 
   return (
-    <div 
-      className="absolute top-6 right-6 p-3 rounded-full bg-white/10 backdrop-blur-sm"
-      style={{ 
-        opacity: opacity,
-        transition: 'opacity 100ms linear',
-        cursor: 'pointer'
-      }}
-    >
-      <Wrench className="w-6 h-6 text-[#EFEEE2]" />
-    </div>
+    <Sheet>
+      <SheetTrigger asChild>
+        <div 
+          className="absolute top-6 right-6 p-3 rounded-full bg-white/10 backdrop-blur-sm"
+          style={{ 
+            opacity: opacity,
+            transition: 'opacity 100ms linear',
+            cursor: 'pointer'
+          }}
+        >
+          <Wrench className="w-6 h-6 text-[#EFEEE2]" />
+        </div>
+      </SheetTrigger>
+      <SheetContent className="w-[85vw] sm:w-[600px] overflow-y-auto">
+        <KnowledgeGraph />
+      </SheetContent>
+    </Sheet>
   );
 };
 
