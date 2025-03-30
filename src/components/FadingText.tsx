@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 interface FadingTextProps {
   text: string;
   minInterval?: number; // minimum time between fades in ms
+  invisibleDuration?: number; // how long text should stay invisible in ms
 }
 
 const FadingText: React.FC<FadingTextProps> = ({ 
   text, 
-  minInterval = 7000 // default to 7 seconds minimum between fades
+  minInterval = 7000, // default to 7 seconds minimum between fades
+  invisibleDuration = 5000 // default to 5 seconds of invisibility
 }) => {
   const [visible, setVisible] = useState(true);
   const [opacity, setOpacity] = useState(1);
@@ -22,14 +24,22 @@ const FadingText: React.FC<FadingTextProps> = ({
         // Start fade out
         setOpacity(0);
         
-        // After fade out completes, toggle visibility and start fade in
+        // After fade out completes, toggle visibility
         setTimeout(() => {
-          setVisible(!visible);
+          setVisible(false);
+          
+          // Wait for invisibleDuration before starting to fade back in
           setTimeout(() => {
-            setOpacity(1);
-            // Schedule next fade after this one completes
-            timeoutId = scheduleNextFade();
-          }, 100);
+            setVisible(true);
+            
+            // Start fade in
+            setTimeout(() => {
+              setOpacity(1);
+              
+              // Schedule next fade after this one completes
+              timeoutId = scheduleNextFade();
+            }, 100);
+          }, invisibleDuration);
         }, 500); // Match the duration in the CSS transition
       }, nextFadeTime);
     };
@@ -39,7 +49,10 @@ const FadingText: React.FC<FadingTextProps> = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [visible, minInterval]);
+  }, [minInterval, invisibleDuration]);
+  
+  // Don't render anything when not visible
+  if (!visible) return null;
   
   return (
     <p 
