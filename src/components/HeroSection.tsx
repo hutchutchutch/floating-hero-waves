@@ -1,15 +1,23 @@
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
+import VoiceWaveform from './VoiceWaveform';
 
 const HeroSection: React.FC = () => {
+  const [microphoneActive, setMicrophoneActive] = useState(false);
+  const [audioData, setAudioData] = useState<Uint8Array | null>(null);
+
   const handleMicToggle = (isActive: boolean) => {
     console.log('Microphone is', isActive ? 'active' : 'inactive');
-    // Here you could add actual microphone functionality
+    setMicrophoneActive(isActive);
+  };
+
+  const handleAudioData = (data: Uint8Array) => {
+    setAudioData(new Uint8Array(data));
   };
 
   return (
@@ -24,9 +32,12 @@ const HeroSection: React.FC = () => {
         </Canvas>
       </div>
       
+      {/* Voice Waveform Visualization */}
+      <VoiceWaveform audioData={audioData} isActive={microphoneActive} />
+      
       {/* Central Content */}
       <div className="relative h-full w-full flex flex-col items-center justify-center">
-        <MicrophoneButton onToggle={handleMicToggle} />
+        <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
         <FadingText text="Go ahead." />
       </div>
     </div>

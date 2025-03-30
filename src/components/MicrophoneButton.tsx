@@ -1,21 +1,50 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mic, MicOff } from 'lucide-react';
+import audioRecorder from '../utils/AudioRecorder';
 
 type MicrophoneButtonProps = {
   onToggle?: (isActive: boolean) => void;
+  onAudioData?: (data: Uint8Array) => void;
 };
 
-const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle }) => {
+const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioData }) => {
   const [isActive, setIsActive] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     const newState = !isActive;
     setIsActive(newState);
+    
+    if (newState) {
+      // Start recording
+      const success = await audioRecorder.startRecording((data) => {
+        if (onAudioData) {
+          onAudioData(data);
+        }
+      });
+      
+      if (!success) {
+        // If recording failed, set back to inactive
+        setIsActive(false);
+      }
+    } else {
+      // Stop recording
+      audioRecorder.stopRecording();
+    }
+    
     if (onToggle) {
       onToggle(newState);
     }
   };
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (isActive) {
+        audioRecorder.stopRecording();
+      }
+    };
+  }, [isActive]);
 
   return (
     <div className="flex flex-col items-center z-10">
