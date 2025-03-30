@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Pause } from 'lucide-react';
 import audioRecorder from '../utils/AudioRecorder';
@@ -30,17 +29,14 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   const hasStartedSessionRef = useRef<boolean>(false);
   const sessionIdRef = useRef<string | null>(null);
 
-  // Handle starting a new recording session
   const startRecordingSession = async () => {
     console.log('🎤 Starting new recording session');
     
-    // Prevent multiple session starts
     if (hasStartedSessionRef.current) {
       console.log('🎤 Session already started, skipping');
       return sessionIdRef.current;
     }
     
-    // End any previous session
     if (sessionIdRef.current) {
       console.log('🎤 Ending previous session before starting new one');
       await recordingManager.endSession();
@@ -67,7 +63,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     }
   };
 
-  // Handle ending the current recording session
   const endRecordingSession = async () => {
     console.log('🎤 Ending current recording session');
     await recordingManager.endSession();
@@ -80,7 +75,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     }
   };
 
-  // Generate an AI response based on the transcription
   const generateAiResponse = async (text: string) => {
     if (!text || text.trim().length < 5) {
       console.log('🎤 Text too short for AI response:', text);
@@ -91,7 +85,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     setIsProcessing(true);
     
     try {
-      // Check if we have a session ID, if not try to get it
       if (!sessionIdRef.current) {
         console.log('🎤 No session ID, attempting to start a new session');
         const sessionId = await startRecordingSession();
@@ -102,7 +95,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         }
       }
       
-      // Get the current transcription ID
       const transcriptions = await recordingManager.getSessionTranscriptions();
       
       console.log('🎤 Found transcriptions:', transcriptions.length);
@@ -110,7 +102,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       if (transcriptions.length === 0) {
         console.log('🎤 No transcriptions found, saving transcription first');
         
-        // Save the transcription manually
         const savedTranscription = await recordingManager.saveTranscription(text, 5.0);
         
         if (!savedTranscription) {
@@ -121,10 +112,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         
         console.log('🎤 Created new transcription with ID:', savedTranscription.id);
         
-        // Mark the new transcription as final
         await recordingManager.finalizeTranscription(savedTranscription.id);
         
-        // Generate the response
         const response = await recordingManager.generateAndSaveResponse(
           savedTranscription.id,
           text
@@ -148,10 +137,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       const latestTranscription = transcriptions[transcriptions.length - 1];
       console.log('🎤 Using transcription ID for response:', latestTranscription.id);
       
-      // Mark the transcription as final
       await recordingManager.finalizeTranscription(latestTranscription.id);
       
-      // Generate the response
       const response = await recordingManager.generateAndSaveResponse(
         latestTranscription.id,
         text
@@ -192,10 +179,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     setIsActive(newState);
     
     if (newState) {
-      // Start recording
       console.log('🎤 Attempting to start recording...');
       
-      // Start a new session
       const sessionId = await startRecordingSession();
       if (!sessionId) {
         console.error('🎤 Failed to start session, cannot proceed with recording');
@@ -206,12 +191,11 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       const success = await audioRecorder.startRecording(
         (data) => {
           if (onAudioData) {
-            // Calculate average amplitude from audio data for visualization
             const average = data.reduce((sum, value) => sum + value, 0) / data.length;
-            const normalizedLevel = Math.min(100, Math.max(0, average / 2.55)); // 0-100 scale
+            const normalizedLevel = Math.min(100, Math.max(0, average / 2.55));
             setAudioLevel(normalizedLevel);
             
-            if (Math.random() < 0.02) { // Only log ~2% of audio packets to avoid console spam
+            if (Math.random() < 0.02) {
               console.log(`🎤 Audio data received: ${data.length} bytes, average amplitude: ${average.toFixed(2)}`);
             }
             onAudioData(data);
@@ -219,7 +203,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         },
         (text) => {
           if (onTranscription && text) {
-            // Handle rate limit error marker
             if (text === RATE_LIMIT_ERROR_MARKER) {
               console.warn('🎤 Rate limit error detected in MicrophoneButton');
               toast({
@@ -234,7 +217,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
             console.log(`🎤 Raw transcription #${transcriptionCountRef.current} received: "${text}"`);
             console.log(`🎤 Previous transcription: "${lastTranscriptionRef.current}"`);
             
-            // Only pass new text to the parent component
             if (text !== lastTranscriptionRef.current) {
               lastTranscriptionRef.current = text;
               onTranscription(text);
@@ -250,9 +232,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
           description: "Could not access microphone",
           variant: "destructive",
         });
-        // If recording failed, set back to inactive
         setIsActive(false);
-        // Also end the session we just started
         await endRecordingSession();
       } else {
         console.log('🎤 Recording started successfully');
@@ -261,20 +241,17 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
           description: "Microphone is now active",
           className: "bg-white/10 text-white backdrop-blur-md border-none",
         });
-        // Reset last transcription when starting a new recording
         lastTranscriptionRef.current = '';
         transcriptionCountRef.current = 0;
         
-        // Set a timer to periodically generate AI responses if we have transcription
         sessionTimerRef.current = setInterval(async () => {
           if (lastTranscriptionRef.current && !isProcessing) {
             console.log('🎤 Session timer triggered, generating AI response');
             await generateAiResponse(lastTranscriptionRef.current);
           }
-        }, 15000); // Check every 15 seconds
+        }, 15000);
       }
     } else {
-      // Stop recording
       console.log('🎤 Stopping recording...');
       audioRecorder.stopRecording();
       console.log('🎤 Recording stopped');
@@ -285,15 +262,12 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         className: "bg-white/10 text-white backdrop-blur-md border-none",
       });
       
-      // Generate final AI response if we have transcription
       if (lastTranscriptionRef.current) {
         await generateAiResponse(lastTranscriptionRef.current);
       }
       
-      // End the recording session
       await endRecordingSession();
       
-      // Reset last transcription when stopping
       lastTranscriptionRef.current = '';
       transcriptionCountRef.current = 0;
     }
@@ -303,7 +277,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     }
   };
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (isActive) {
@@ -325,7 +298,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       <button
         onClick={handleClick}
         className={`h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-full flex items-center justify-center transition-all duration-300 
-          ${isActive ? 'bg-white/10' : 'bg-white/10'} text-white backdrop-blur-sm hover:bg-white/20 relative
+          ${isActive ? 'bg-white/10 shadow-lg shadow-purple-500/20' : 'bg-white/10'} text-white backdrop-blur-sm hover:bg-white/20 relative
           ${isProcessing ? 'animate-pulse bg-green-500/20' : ''}`}
         aria-label={isActive ? "Pause recording" : "Start recording"}
         disabled={isProcessing}
@@ -337,19 +310,18 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
             <img src="/bulb.svg" alt="Light bulb" className="w-10 h-10 sm:w-12 sm:h-12" />
           )}
         </div>
+        
+        {isActive && (
+          <div className="absolute inset-0 rounded-full border-2 border-purple-500/40 animate-[pulse_2s_ease-in-out_infinite]"></div>
+        )}
       </button>
       
-      {/* Audio level meter */}
       {isActive && (
-        <div className="mt-4 w-full max-w-xs bg-black/30 rounded-full h-2.5 backdrop-blur-sm">
-          <div 
-            className="bg-green-500 h-2.5 rounded-full transition-all duration-100"
-            style={{ width: `${audioLevel}%` }}
-          />
+        <div className="mt-4 text-white/80 text-sm font-light animate-pulse">
+          Listening...
         </div>
       )}
       
-      {/* Processing indicator */}
       {isProcessing && (
         <div className="mt-2 text-sm text-white/80">
           Processing...

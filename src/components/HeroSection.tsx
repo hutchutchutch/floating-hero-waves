@@ -1,3 +1,4 @@
+
 import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -40,9 +41,6 @@ const HeroSection: React.FC = () => {
   };
 
   const handleAudioData = (data: Uint8Array) => {
-    if (Math.random() < 0.02) {
-      console.log(`Audio data received: ${data.length} bytes, max amplitude: ${Math.max(...data)}`);
-    }
     setAudioData(new Uint8Array(data));
   };
 
@@ -174,7 +172,10 @@ const HeroSection: React.FC = () => {
         </Canvas>
       </div>
       
-      <VoiceWaveform isActive={microphoneActive} audioData={audioData} />
+      {/* Position the VoiceWaveform above the microphone button but below the transcription */}
+      <div className="absolute inset-x-0 bottom-40 z-10">
+        <VoiceWaveform isActive={microphoneActive} audioData={audioData} />
+      </div>
       
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
@@ -182,7 +183,7 @@ const HeroSection: React.FC = () => {
         <div className="absolute left-0 right-0 top-16 overflow-y-auto max-h-60 flex flex-col items-center">
           <div className="max-w-2xl w-full px-4 mb-4">
             <div 
-              className={`bg-black/40 backdrop-blur-md text-white rounded-xl px-5 py-4 max-w-[90%] mr-auto animate-slide-up whitespace-pre-wrap break-words border border-white/10 ${isAudioPlaying ? 'border-white/30 shadow-lg shadow-black/20 animate-pulse' : ''}`}
+              className={`glass-morphism text-white rounded-xl px-5 py-4 max-w-[90%] mr-auto animate-slide-up whitespace-pre-wrap break-words ${isAudioPlaying ? 'border-white/30 shadow-lg shadow-black/20 animate-pulse' : ''}`}
             >
               {aiResponse.content}
               {aiResponse.audio_url && isAudioPlaying && (
