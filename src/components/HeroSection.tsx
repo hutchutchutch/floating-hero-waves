@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
+import FadingText from './FadingText';
 
 const HeroSection: React.FC = () => {
   const handleMicToggle = (isActive: boolean) => {
@@ -15,7 +16,7 @@ const HeroSection: React.FC = () => {
     <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">
       {/* 3D Canvas Background */}
       <div className="absolute inset-0">
-        <Canvas camera={{ position: [0, 0, 2], fov: 50 }}>
+        <Canvas camera={{ position: [0, 0, 1.5], fov: 50 }}>
           <Suspense fallback={null}>
             <FloatingObjects />
             <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
@@ -26,7 +27,7 @@ const HeroSection: React.FC = () => {
       {/* Central Content */}
       <div className="relative h-full w-full flex flex-col items-center justify-center">
         <MicrophoneButton onToggle={handleMicToggle} />
-        <p className="text-white text-xl mt-4 animate-pulse">what's up?</p>
+        <FadingText text="Go ahead." />
       </div>
     </div>
   );

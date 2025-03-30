@@ -25,7 +25,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle }) => {
           ${isActive 
             ? 'bg-cosmic-pink text-white shadow-lg shadow-cosmic-pink/30' 
             : 'bg-white/10 text-white backdrop-blur-sm hover:bg-white/20'
-          } animate-[vibrate_3s_ease-in-out_infinite]`}
+          }`}
         aria-label={isActive ? "Turn microphone off" : "Turn microphone on"}
       >
         {isActive ? (
@@ -34,7 +34,6 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle }) => {
           <Mic className="h-1/2 w-1/2" />
         )}
       </button>
-      <span className="mt-4 text-white/80 text-lg font-light">what's up?</span>
     </div>
   );
 };
