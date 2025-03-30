@@ -12,10 +12,10 @@ const HeroSection: React.FC = () => {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-gradient-to-b from-cosmic-dark to-cosmic-blue/40">
+    <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">
       {/* 3D Canvas Background */}
       <div className="absolute inset-0">
-        <Canvas camera={{ position: [0, 0, 5], fov: 60 }}>
+        <Canvas camera={{ position: [0, 0, 3], fov: 50 }}>
           <Suspense fallback={null}>
             <FloatingObjects />
             <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />

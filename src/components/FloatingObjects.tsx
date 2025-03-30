@@ -56,8 +56,8 @@ const FloatingObject: React.FC<ObjectProps> = ({
       // Reset position when it goes too high
       if (group.current.position.y > maxY) {
         group.current.position.y = -10;
-        group.current.position.x = MathUtils.randFloatSpread(15);
-        group.current.position.z = MathUtils.randFloatSpread(8);
+        group.current.position.x = MathUtils.randFloatSpread(10);
+        group.current.position.z = MathUtils.randFloatSpread(6);
       }
     }
   });
@@ -90,21 +90,21 @@ const FloatingObjects: React.FC = () => {
     const colors = ['#5924ed', '#2b78e4', '#f73585', '#b249f8', '#0f0920'];
     const items = [];
     
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 10; i++) {
       items.push({
         position: [
-          MathUtils.randFloatSpread(15),  // x (narrower spread)
+          MathUtils.randFloatSpread(10),  // x (even narrower spread)
           MathUtils.randFloatSpread(10) - 15,  // y (start below screen)
-          MathUtils.randFloatSpread(8),   // z (closer to camera)
+          MathUtils.randFloatSpread(6),   // z (much closer to camera)
         ] as [number, number, number],
         color: colors[Math.floor(Math.random() * colors.length)],
-        scale: MathUtils.randFloat(0.2, 0.4),  // Much larger scale
+        scale: MathUtils.randFloat(0.6, 1.0),  // Much larger scale
         rotationSpeed: [
-          MathUtils.randFloat(0.0005, 0.001) * (Math.random() > 0.5 ? 1 : -1),  // Slower rotation
-          MathUtils.randFloat(0.0005, 0.001) * (Math.random() > 0.5 ? 1 : -1),
-          MathUtils.randFloat(0.0005, 0.001) * (Math.random() > 0.5 ? 1 : -1),
+          MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),  // Even slower rotation
+          MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),
+          MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),
         ] as [number, number, number],
-        floatSpeed: MathUtils.randFloat(0.005, 0.01),  // Slower floating
+        floatSpeed: MathUtils.randFloat(0.003, 0.007),  // Even slower floating
         maxY: 15
       });
     }
