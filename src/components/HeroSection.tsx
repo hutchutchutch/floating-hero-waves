@@ -110,10 +110,7 @@ const HeroSection: React.FC = () => {
                 className="text-xl font-medium text-white/10 [--base-color:rgba(255,255,255,0.1)] [--base-gradient-color:#ffffff]"
                 duration={3}
               >
-                <div className="flex items-center gap-2">
-                  Go ahead
-                  <Sparkles className="w-5 h-5 text-white/10" />
-                </div>
+                Go ahead <Sparkles className="w-5 h-5 text-white/10 inline-block ml-1" />
               </TextShimmer>
             </div>
           )}
