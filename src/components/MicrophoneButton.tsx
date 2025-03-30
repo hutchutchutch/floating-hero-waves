@@ -54,13 +54,13 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioDa
           bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 relative"
         aria-label={isActive ? "Pause recording" : "Start recording"}
       >
-        {isActive ? (
-          <Pause className="h-1/2 w-1/2 text-white" />
-        ) : (
-          <Mic className="h-1/2 w-1/2 text-white" />
-        )}
-        <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 lg:top-2.5 lg:right-2.5">
-          <Sparkle className="h-2 w-2 sm:h-2.5 sm:w-2.5 text-white opacity-80" />
+        <div className="relative">
+          {isActive ? (
+            <Pause className="h-1/2 w-1/2 text-white" />
+          ) : (
+            <Mic className="h-1/2 w-1/2 text-white" />
+          )}
+          <Sparkle className="absolute -top-1 -right-1 h-2 w-2 sm:h-2.5 sm:w-2.5 text-white opacity-80" />
         </div>
       </button>
     </div>
