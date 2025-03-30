@@ -73,8 +73,12 @@ const HeroSection: React.FC = () => {
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">
-        <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
-        <FadingText text="Go ahead." />
+        <div className="flex flex-col items-center">
+          <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
+          <div className="h-4"> {/* Fixed height spacer */}
+            <FadingText text="Go ahead." />
+          </div>
+        </div>
       </div>
     </div>
   );
