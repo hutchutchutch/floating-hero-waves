@@ -10,12 +10,14 @@ import { TextShimmer } from '@/components/ui/text-shimmer';
 import { useToast } from "@/components/ui/use-toast";
 import { isGroqKeyConfigured } from '../config/apiKeys';
 import VoiceWaveform from './VoiceWaveform';
+import WrenchIcon from './WrenchIcon';
 
 const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
   const [audioData, setAudioData] = useState<Uint8Array | null>(null);
   const [transcribedText, setTranscribedText] = useState('');
   const [showGoAhead, setShowGoAhead] = useState(false);
+  const [hasTranscribedContent, setHasTranscribedContent] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,6 +60,11 @@ const HeroSection: React.FC = () => {
     if (text.trim()) {
       console.log('New transcription chunk received in HeroSection:', text);
       setTranscribedText(text);
+      // If we have any meaningful transcription content, show the wrench icon
+      if (text.length > 3) {
+        console.log('Setting hasTranscribedContent to true because we received text:', text);
+        setHasTranscribedContent(true);
+      }
     } else {
       console.log('Empty transcription received');
     }
@@ -87,6 +94,9 @@ const HeroSection: React.FC = () => {
       
       {/* Display transcribed text as chat bubbles */}
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
+      
+      {/* Wrench icon that appears after first transcription */}
+      <WrenchIcon visible={hasTranscribedContent} />
       
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">
         <div className="flex flex-col items-center">
