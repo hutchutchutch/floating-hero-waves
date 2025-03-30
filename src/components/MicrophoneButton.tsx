@@ -45,14 +45,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
             console.log(`Transcription received: "${text}"`);
             onTranscription(text);
             
-            // Show toast when transcription is received
-            if (text.trim()) {
-              toast({
-                title: "Transcription Received",
-                description: `"${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`,
-                duration: 3000,
-              });
-            }
+            // We no longer show toast for transcriptions
           }
         }
       );

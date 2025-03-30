@@ -33,26 +33,20 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
 
   return (
     <div className="absolute left-0 right-0 bottom-16 overflow-hidden h-60 flex flex-col-reverse items-center">
-      {transcriptionLines.map((line, index) => {
-        // Calculate opacity based on position - newer lines are more opaque
-        const opacity = ((transcriptionLines.length - index) / transcriptionLines.length) * 0.9;
-        // Calculate y position for animation - newer lines start lower
-        const translateY = index * 10;
-        
-        return (
-          <div 
-            key={index} 
-            className="text-white text-center px-4 py-1 mb-2 max-w-md animate-fade-in"
-            style={{ 
-              opacity, 
-              transform: `translateY(${translateY}px)`,
-              transition: 'opacity 0.5s, transform 1s',
-            }}
-          >
-            {line}
-          </div>
-        );
-      })}
+      <div className="max-w-2xl w-full px-4 space-y-3">
+        {transcriptionLines.map((line, index) => {
+          if (!line.trim()) return null;
+          
+          return (
+            <div 
+              key={index} 
+              className="bg-white/10 backdrop-blur-md text-white rounded-lg px-4 py-2 max-w-[85%] ml-auto animate-slide-up"
+            >
+              {line}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
