@@ -27,13 +27,19 @@ const HeroSection: React.FC = () => {
   };
 
   const handleAudioData = (data: Uint8Array) => {
+    // Log audio data size without spamming the console
+    if (Math.random() < 0.02) { // Only log ~2% of audio packets
+      console.log(`Audio data received: ${data.length} bytes, max amplitude: ${Math.max(...data)}`);
+    }
     setAudioData(new Uint8Array(data));
   };
 
   const handleTranscription = (text: string) => {
     if (text.trim()) {
-      console.log('Transcription received:', text);
+      console.log('Transcription received in HeroSection:', text);
       setTranscribedText(text);
+    } else {
+      console.log('Empty transcription received');
     }
   };
 
@@ -44,6 +50,13 @@ const HeroSection: React.FC = () => {
     
     return () => clearTimeout(timer);
   }, []);
+
+  // Log when transcribed text changes
+  useEffect(() => {
+    if (transcribedText) {
+      console.log('Transcribed text updated:', transcribedText);
+    }
+  }, [transcribedText]);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">

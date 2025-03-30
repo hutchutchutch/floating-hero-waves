@@ -18,30 +18,39 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
 
   const handleClick = async () => {
     const newState = !isActive;
+    console.log(`Microphone button clicked, setting state to: ${newState}`);
     setIsActive(newState);
     
     if (newState) {
       // Start recording
+      console.log('Attempting to start recording...');
       const success = await audioRecorder.startRecording(
         (data) => {
           if (onAudioData) {
+            console.log(`Audio data received: ${data.length} bytes`);
             onAudioData(data);
           }
         },
         (text) => {
           if (onTranscription) {
+            console.log(`Transcription received: "${text}"`);
             onTranscription(text);
           }
         }
       );
       
       if (!success) {
+        console.error('Failed to start recording');
         // If recording failed, set back to inactive
         setIsActive(false);
+      } else {
+        console.log('Recording started successfully');
       }
     } else {
       // Stop recording
+      console.log('Stopping recording...');
       audioRecorder.stopRecording();
+      console.log('Recording stopped');
     }
     
     if (onToggle) {
@@ -53,6 +62,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   useEffect(() => {
     return () => {
       if (isActive) {
+        console.log('Component unmounting, stopping recording...');
         audioRecorder.stopRecording();
       }
     };
