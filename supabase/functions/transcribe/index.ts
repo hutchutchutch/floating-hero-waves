@@ -50,7 +50,7 @@ serve(async (req) => {
     // Create FormData to send to GROQ API
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
+    formData.append('model', 'whisper-large-v3'); // Updated model name from whisper-1 to whisper-large-v3
 
     console.log('Sending audio chunk to GROQ for transcription...');
     

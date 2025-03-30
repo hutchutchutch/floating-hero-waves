@@ -9,6 +9,7 @@ import TextTranscription from './TextTranscription';
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import { useToast } from "@/components/ui/use-toast";
 import { isGroqKeyConfigured } from '../config/apiKeys';
+import VoiceWaveform from './VoiceWaveform';
 
 const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
@@ -17,12 +18,31 @@ const HeroSection: React.FC = () => {
   const [showGoAhead, setShowGoAhead] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Check if GROQ API key is configured
+    if (!isGroqKeyConfigured()) {
+      toast({
+        title: "GROQ API Key Missing",
+        description: "Please add your GROQ_API_KEY to the Supabase Edge Function secrets.",
+        variant: "destructive",
+        duration: 10000,
+      });
+    }
+  }, [toast]);
+
   const handleMicToggle = (isActive: boolean) => {
     console.log('Microphone is', isActive ? 'active' : 'inactive');
     setMicrophoneActive(isActive);
     
     if (!isActive) {
       setTranscribedText('');
+    } else {
+      // Show audio collection started toast
+      toast({
+        title: "Audio Collection Started",
+        description: "Speak clearly into your microphone.",
+        duration: 3000,
+      });
     }
   };
 
@@ -68,6 +88,9 @@ const HeroSection: React.FC = () => {
           </Suspense>
         </Canvas>
       </div>
+      
+      {/* Audio waveform visualization */}
+      <VoiceWaveform isActive={microphoneActive} audioData={audioData} />
       
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
