@@ -1,16 +1,19 @@
 
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
 import TextTranscription from './TextTranscription';
+import { useToast } from "@/components/ui/use-toast";
+import { GROQ_API_KEY } from '../config/apiKeys';
 
 const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
   const [audioData, setAudioData] = useState<Uint8Array | null>(null);
   const [transcribedText, setTranscribedText] = useState('');
+  const { toast } = useToast();
 
   const handleMicToggle = (isActive: boolean) => {
     console.log('Microphone is', isActive ? 'active' : 'inactive');
@@ -18,6 +21,13 @@ const HeroSection: React.FC = () => {
     
     if (!isActive) {
       setTranscribedText('');
+    } else if (GROQ_API_KEY === "YOUR_PUBLISHABLE_GROQ_API_KEY") {
+      toast({
+        title: "GROQ API Key Missing",
+        description: "Please update the API key in src/config/apiKeys.ts",
+        variant: "destructive",
+        duration: 5000
+      });
     }
   };
 
@@ -58,6 +68,13 @@ const HeroSection: React.FC = () => {
       if (interval) clearInterval(interval);
     };
   }, [microphoneActive]);
+
+  // Check API key on component mount
+  useEffect(() => {
+    if (GROQ_API_KEY === "YOUR_PUBLISHABLE_GROQ_API_KEY") {
+      console.warn("GROQ API Key not configured. WebRTC streaming will not work.");
+    }
+  }, []);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">

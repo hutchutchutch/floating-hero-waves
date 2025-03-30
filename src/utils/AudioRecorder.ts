@@ -1,4 +1,6 @@
 
+import webRTCHandler from './WebRTCHandler';
+
 class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioContext: AudioContext | null = null;
@@ -8,6 +10,7 @@ class AudioRecorder {
   private isRecording = false;
   private onAudioDataCallback: ((data: Uint8Array) => void) | null = null;
   private dummyDataInterval: NodeJS.Timeout | null = null;
+  private isWebRTCConnected = false;
 
   constructor() {
     this.init = this.init.bind(this);
@@ -22,6 +25,19 @@ class AudioRecorder {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       try {
         this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Initialize WebRTC connection
+        const webRTCInitialized = await webRTCHandler.init((message) => {
+          console.log('Received message from GROQ:', message);
+        });
+        
+        if (webRTCInitialized) {
+          this.isWebRTCConnected = await webRTCHandler.connectToGroq();
+          if (!this.isWebRTCConnected) {
+            console.warn('Failed to connect to GROQ, continuing without WebRTC');
+          }
+        }
+        
         return true;
       } catch (micError) {
         console.warn('Could not access microphone, using dummy data:', micError);
@@ -107,6 +123,11 @@ class AudioRecorder {
     
     // Send data to callback for visualization
     this.onAudioDataCallback(this.audioData);
+    
+    // Send to GROQ via WebRTC if connected
+    if (this.isWebRTCConnected) {
+      webRTCHandler.sendAudioData(this.audioData);
+    }
     
     // Continue analyzing while recording
     requestAnimationFrame(this.analyzeAudio);
