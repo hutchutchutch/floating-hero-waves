@@ -1,5 +1,14 @@
+
+import { 
+  CHUNK_DURATION_MS, 
+  MAX_CHUNKS, 
+  TRANSCRIPTION_INTERVAL_MS,
+  RATE_LIMIT_ERROR_MARKER
+} from './audio/constants';
+import { AudioProcessor } from './audio/AudioProcessor';
+import { DummyAudioGenerator } from './audio/DummyAudioGenerator';
+import { IWebRTCHandler } from './audio/IWebRTCHandler';
 import webRTCHandler from './WebRTCHandler';
-import { supabase } from "@/integrations/supabase/client";
 
 class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
@@ -10,26 +19,18 @@ class AudioRecorder {
   private isRecording = false;
   private onAudioDataCallback: ((data: Uint8Array) => void) | null = null;
   private onTranscriptionCallback: ((text: string) => void) | null = null;
-  private dummyDataInterval: NodeJS.Timeout | null = null;
   private isWebRTCConnected = false;
-  private recordedChunks: Blob[] = [];
   private transcriptionInterval: NodeJS.Timeout | null = null;
   private audioProcessor: ScriptProcessorNode | null = null;
-  private chunkCounter = 0;
   private lastTranscriptionTime = 0;
-  private rateLimitBackoff = 1000; // Start with 1 second
-  private isRateLimited = false;
-  private consecutiveRateLimitErrors = 0;
-  private maxConsecutiveRateLimitErrors = 3;
-  private lastRateLimitToastTime = 0;
+  private audioChunkProcessor: AudioProcessor | null = null;
+  private dummyGenerator: DummyAudioGenerator | null = null;
   
-  constructor() {
+  constructor(private readonly webrtcHandler: IWebRTCHandler = webRTCHandler) {
     this.init = this.init.bind(this);
     this.startRecording = this.startRecording.bind(this);
     this.stopRecording = this.stopRecording.bind(this);
     this.analyzeAudio = this.analyzeAudio.bind(this);
-    this.generateDummyData = this.generateDummyData.bind(this);
-    this.processAudioChunk = this.processAudioChunk.bind(this);
   }
 
   async init(): Promise<boolean> {
@@ -51,13 +52,13 @@ class AudioRecorder {
         
         // Initialize WebRTC connection
         console.log('🔊 AudioRecorder: Initializing WebRTC connection...');
-        const webRTCInitialized = await webRTCHandler.init((message) => {
+        const webRTCInitialized = await this.webrtcHandler.init((message) => {
           console.log('🔊 AudioRecorder: Received message from GROQ:', message);
         });
         
         if (webRTCInitialized) {
           console.log('🔊 AudioRecorder: WebRTC initialized, connecting to GROQ...');
-          this.isWebRTCConnected = await webRTCHandler.connectToGroq();
+          this.isWebRTCConnected = await this.webrtcHandler.connectToGroq();
           console.log('🔊 AudioRecorder: WebRTC connection status:', this.isWebRTCConnected ? 'Connected' : 'Failed');
           
           if (!this.isWebRTCConnected) {
@@ -68,7 +69,7 @@ class AudioRecorder {
             // Check WebRTC connection status periodically
             setInterval(() => {
               console.log('🔊 AudioRecorder: WebRTC connection check - Status:', 
-                webRTCHandler.isConnected() ? 'Connected' : 'Disconnected');
+                this.webrtcHandler.isConnected() ? 'Connected' : 'Disconnected');
             }, 5000);
           }
         } else {
@@ -94,12 +95,10 @@ class AudioRecorder {
     console.log('🔊 AudioRecorder: Starting recording...');
     this.onAudioDataCallback = onAudioData;
     this.onTranscriptionCallback = onTranscription;
-    this.recordedChunks = [];
-    this.chunkCounter = 0;
     this.lastTranscriptionTime = 0;
-    this.isRateLimited = false;
-    this.consecutiveRateLimitErrors = 0;
-    this.rateLimitBackoff = 1000; // Reset backoff to 1 second
+    
+    // Initialize audio chunk processor
+    this.audioChunkProcessor = new AudioProcessor(onTranscription);
     
     if (!this.audioStream) {
       console.log('🔊 AudioRecorder: No audio stream, initializing...');
@@ -157,65 +156,50 @@ class AudioRecorder {
         });
         
         this.mediaRecorder.ondataavailable = (event) => {
-          this.chunkCounter++;
-          console.log(`🔊 AudioRecorder: Media recorder data available: ${event.data.size} bytes (chunk #${this.chunkCounter})`);
-          if (event.data.size > 0) {
-            this.recordedChunks.push(event.data);
+          if (this.audioChunkProcessor && event.data.size > 0) {
+            this.audioChunkProcessor.addChunk(event.data);
           }
         };
         
         console.log('🔊 AudioRecorder: Starting MediaRecorder...');
-        this.mediaRecorder.start(250); // Collect data every 250ms
+        this.mediaRecorder.start(CHUNK_DURATION_MS); // Collect data every 250ms
         
         // Start analyzing audio for visualization
         this.isRecording = true;
         this.analyzeAudio();
 
-        // Set up transcription interval (every 3 seconds to reduce API calls)
+        // Set up transcription interval
         console.log('🔊 AudioRecorder: Setting up transcription interval...');
         this.transcriptionInterval = setInterval(async () => {
-          // Skip if we're rate limited
-          if (this.isRateLimited) {
-            console.log('🔊 AudioRecorder: Skipping transcription due to rate limiting');
-            return;
-          }
+          if (!this.audioChunkProcessor) return;
           
           // Check if enough time has passed since the last transcription
           const now = Date.now();
           const timeElapsed = now - this.lastTranscriptionTime;
-          const minimumInterval = this.rateLimitBackoff;
           
-          if (timeElapsed < minimumInterval) {
-            console.log(`🔊 AudioRecorder: Skipping transcription, only ${timeElapsed}ms passed (need ${minimumInterval}ms)`);
+          if (timeElapsed < TRANSCRIPTION_INTERVAL_MS) {
+            console.log(`🔊 AudioRecorder: Skipping transcription, only ${timeElapsed}ms passed (need ${TRANSCRIPTION_INTERVAL_MS}ms)`);
             return;
           }
           
-          if (this.recordedChunks.length > 0) {
-            console.log(`🔊 AudioRecorder: Processing ${this.recordedChunks.length} audio chunks for transcription`);
-            
-            // Keep only the most recent chunks (last 15 seconds to reduce payload size)
-            const maxChunks = 60; // 60 chunks * 250ms = 15 seconds
-            if (this.recordedChunks.length > maxChunks) {
-              console.log(`🔊 AudioRecorder: Limiting chunks to last ${maxChunks} (from ${this.recordedChunks.length})`);
-              this.recordedChunks = this.recordedChunks.slice(-maxChunks);
-            }
-            
-            // Create a combined blob from all chunks
-            const combinedBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
-            console.log(`🔊 AudioRecorder: Created combined blob with size: ${combinedBlob.size} bytes`);
-            
-            // Process the combined audio for transcription
+          const processed = await this.audioChunkProcessor.processChunksIfReady(MAX_CHUNKS);
+          if (processed) {
             this.lastTranscriptionTime = now;
-            await this.processAudioChunk(combinedBlob);
           }
-        }, 3000); // Reduced frequency to 3 seconds to avoid hitting rate limits
+        }, TRANSCRIPTION_INTERVAL_MS);
         
         console.log('🔊 AudioRecorder: Recording started successfully');
       } else {
         // Use dummy data if no microphone access
         console.log('🔊 AudioRecorder: No microphone access, using dummy data');
         this.isRecording = true;
-        this.generateDummyData();
+        
+        // Initialize and start dummy generator
+        this.dummyGenerator = new DummyAudioGenerator(
+          this.onAudioDataCallback,
+          this.onTranscriptionCallback
+        );
+        this.dummyGenerator.start();
       }
       
       return true;
@@ -224,100 +208,15 @@ class AudioRecorder {
       // Fall back to dummy data
       console.log('🔊 AudioRecorder: Falling back to dummy data due to error');
       this.isRecording = true;
-      this.generateDummyData();
+      
+      // Initialize and start dummy generator
+      this.dummyGenerator = new DummyAudioGenerator(
+        this.onAudioDataCallback,
+        this.onTranscriptionCallback
+      );
+      this.dummyGenerator.start();
+      
       return true;
-    }
-  }
-
-  async processAudioChunk(chunk: Blob): Promise<void> {
-    console.log(`🔊 AudioRecorder: Processing audio chunk: ${chunk.size} bytes, type: ${chunk.type}`);
-    try {
-      // Convert blob to base64
-      const arrayBuffer = await chunk.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      console.log(`🔊 AudioRecorder: Converted to Uint8Array with ${bytes.length} bytes`);
-      
-      let binary = '';
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64Data = btoa(binary);
-      console.log(`🔊 AudioRecorder: Converted to base64 string with length ${base64Data.length}`);
-
-      // Get the GROQ API key from the environment with the updated name
-      const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
-      if (!GROQ_API_KEY) {
-        console.warn('🔊 AudioRecorder: VITE_GROQ_API_KEY not found in environment variables');
-      }
-
-      // Send to our Edge Function
-      console.log('🔊 AudioRecorder: Sending audio chunk to Supabase Edge Function...');
-      const { data, error, status } = await supabase.functions.invoke('transcribe', {
-        body: { 
-          audio: base64Data,
-          apiKey: GROQ_API_KEY
-        }
-      });
-
-      if (status === 429 || (error && data?.statusCode === 429)) {
-        console.error('🔊 AudioRecorder: RATE LIMIT ERROR (429) from transcribe function');
-        
-        // Track consecutive rate limit errors
-        this.consecutiveRateLimitErrors++;
-        
-        // Set rate limited flag
-        this.isRateLimited = true;
-        
-        // Increase backoff time with each rate limit (exponential backoff)
-        this.rateLimitBackoff = Math.min(10000, this.rateLimitBackoff * 2);
-        
-        // Throttle rate limit notifications (max one per 10 seconds)
-        const now = Date.now();
-        if (now - this.lastRateLimitToastTime > 10000) {
-          this.lastRateLimitToastTime = now;
-          
-          // Notify application about rate limit via callback
-          if (this.onTranscriptionCallback) {
-            this.onTranscriptionCallback("__RATE_LIMIT_ERROR__");
-          }
-        }
-        
-        // After a delay, clear the rate limit flag
-        setTimeout(() => {
-          console.log(`🔊 AudioRecorder: Clearing rate limit flag after ${this.rateLimitBackoff}ms backoff`);
-          this.isRateLimited = false;
-        }, this.rateLimitBackoff);
-        
-        return;
-      }
-      
-      // If we get here, reset consecutive errors counter
-      this.consecutiveRateLimitErrors = 0;
-
-      if (error) {
-        console.error('🔊 AudioRecorder: Error from transcribe function:', error);
-        return;
-      }
-
-      if (data?.text) {
-        console.log('🔊 AudioRecorder: Transcription successfully received:', data.text);
-        console.log('🔊 AudioRecorder: Transcription length:', data.text.length);
-        console.log('🔊 AudioRecorder: Transcription word count:', data.text.split(' ').length);
-        
-        // Log the full response for debugging
-        console.log('🔊 AudioRecorder: Full response data:', JSON.stringify(data));
-        
-        if (this.onTranscriptionCallback) {
-          console.log('🔊 AudioRecorder: Calling transcription callback with text:', data.text);
-          this.onTranscriptionCallback(data.text);
-        }
-      } else {
-        console.log('🔊 AudioRecorder: No transcription text in response:', data);
-        console.log('🔊 AudioRecorder: Full response data for debugging:', JSON.stringify(data));
-      }
-    } catch (error) {
-      console.error('🔊 AudioRecorder: Error processing audio chunk:', error);
     }
   }
 
@@ -342,10 +241,10 @@ class AudioRecorder {
       this.audioProcessor = null;
     }
     
-    if (this.dummyDataInterval) {
-      console.log('🔊 AudioRecorder: Clearing dummy data interval...');
-      clearInterval(this.dummyDataInterval);
-      this.dummyDataInterval = null;
+    if (this.dummyGenerator) {
+      console.log('🔊 AudioRecorder: Stopping dummy data generator...');
+      this.dummyGenerator.stop();
+      this.dummyGenerator = null;
     }
 
     if (this.transcriptionInterval) {
@@ -356,7 +255,7 @@ class AudioRecorder {
     
     this.onAudioDataCallback = null;
     this.onTranscriptionCallback = null;
-    this.recordedChunks = [];
+    this.audioChunkProcessor = null;
     console.log('🔊 AudioRecorder: Recording stopped');
   }
 
@@ -373,62 +272,18 @@ class AudioRecorder {
     
     // Send to GROQ via WebRTC if connected
     if (this.isWebRTCConnected) {
-      const isConnected = webRTCHandler.isConnected();
+      const isConnected = this.webrtcHandler.isConnected();
       if (Math.random() < 0.01) { // Only log 1% to avoid spam
         console.log('🔊 AudioRecorder: WebRTC status during analysis:', isConnected ? 'Connected' : 'Disconnected');
       }
       
       if (isConnected) {
-        webRTCHandler.sendAudioData(this.audioData);
+        this.webrtcHandler.sendAudioData(this.audioData);
       }
     }
     
     // Continue analyzing while recording
     requestAnimationFrame(this.analyzeAudio);
-  }
-
-  private generateDummyData(): void {
-    if (!this.onAudioDataCallback || !this.isRecording) return;
-
-    console.log('🔊 AudioRecorder: Generating dummy audio data...');
-    // Create dummy buffer with 128 values (typical frequency bin count)
-    const dummyData = new Uint8Array(128);
-    
-    // Set up interval to generate random audio-like data
-    this.dummyDataInterval = setInterval(() => {
-      if (!this.isRecording) {
-        if (this.dummyDataInterval) clearInterval(this.dummyDataInterval);
-        return;
-      }
-      
-      // Generate random waveform-like data
-      for (let i = 0; i < dummyData.length; i++) {
-        // Create more natural looking audio pattern
-        const baseValue = 20 + Math.sin(Date.now() / 500 + i / 10) * 30;
-        const randomVariation = Math.random() * 40;
-        dummyData[i] = Math.min(255, Math.max(0, Math.floor(baseValue + randomVariation)));
-      }
-      
-      if (this.onAudioDataCallback) {
-        this.onAudioDataCallback(dummyData);
-      }
-
-      if (this.onTranscriptionCallback) {
-        const dummyPhrases = [
-          "Hello, I'm looking for information.",
-          "Can you help me find something?",
-          "I need assistance with a question.",
-          "How does this service work?",
-          "Tell me more about this app.",
-        ];
-        
-        if (Math.random() > 0.7) {
-          const randomPhrase = dummyPhrases[Math.floor(Math.random() * dummyPhrases.length)];
-          console.log('🔊 AudioRecorder: Generated dummy transcription:', randomPhrase);
-          this.onTranscriptionCallback(randomPhrase);
-        }
-      }
-    }, 50); // Update dummy data at 20fps
   }
 }
 

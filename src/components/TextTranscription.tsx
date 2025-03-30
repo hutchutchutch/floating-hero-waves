@@ -81,7 +81,7 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
     <div className="absolute left-0 right-0 bottom-16 overflow-y-auto max-h-60 flex flex-col-reverse items-center">
       <div className="max-w-2xl w-full px-4 mb-4">
         <div 
-          className="glass-morphism text-white rounded-xl px-5 py-4 max-w-[90%] ml-auto animate-slide-up whitespace-pre-wrap break-words"
+          className="bg-white/10 backdrop-blur-md text-white rounded-xl px-5 py-4 max-w-[90%] ml-auto animate-slide-up whitespace-pre-wrap break-words border border-white/20"
         >
           {combinedText}
         </div>

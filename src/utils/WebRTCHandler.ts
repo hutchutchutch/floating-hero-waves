@@ -1,6 +1,8 @@
-import { supabase } from "@/integrations/supabase/client";
 
-class WebRTCHandler {
+import { supabase } from "@/integrations/supabase/client";
+import { IWebRTCHandler } from "./audio/IWebRTCHandler";
+
+class WebRTCHandler implements IWebRTCHandler {
   private pc: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
   private onMessageCallback: ((message: string) => void) | null = null;

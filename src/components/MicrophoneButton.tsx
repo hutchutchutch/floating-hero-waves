@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Pause } from 'lucide-react';
 import audioRecorder from '../utils/AudioRecorder';
 import { useToast } from "@/components/ui/use-toast";
+import { RATE_LIMIT_ERROR_MARKER } from '../utils/audio/constants';
 
 type MicrophoneButtonProps = {
   onToggle?: (isActive: boolean) => void;
@@ -46,6 +47,17 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         },
         (text) => {
           if (onTranscription && text) {
+            // Handle rate limit error marker
+            if (text === RATE_LIMIT_ERROR_MARKER) {
+              console.warn('🎤 Rate limit error detected in MicrophoneButton');
+              toast({
+                title: "Rate Limit Exceeded",
+                description: "Too many requests to the transcription service. Please wait a moment.",
+                variant: "destructive",
+              });
+              return;
+            }
+            
             transcriptionCountRef.current += 1;
             console.log(`🎤 Raw transcription #${transcriptionCountRef.current} received: "${text}"`);
             console.log(`🎤 Previous transcription: "${lastTranscriptionRef.current}"`);
@@ -71,6 +83,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         toast({
           title: "Recording Started",
           description: "Microphone is now active",
+          className: "bg-white/10 text-white backdrop-blur-md border-none",
         });
         // Reset last transcription when starting a new recording
         lastTranscriptionRef.current = '';
@@ -84,6 +97,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       toast({
         title: "Recording Stopped",
         description: "Microphone is now inactive",
+        className: "bg-white/10 text-white backdrop-blur-md border-none",
       });
       // Reset last transcription when stopping
       lastTranscriptionRef.current = '';
