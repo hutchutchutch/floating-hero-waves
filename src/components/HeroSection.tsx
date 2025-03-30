@@ -105,14 +105,14 @@ const HeroSection: React.FC = () => {
         <div className="flex flex-col items-center">
           <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
           {showGoAhead && (
-            <div className="h-4 flex items-center gap-2 mt-4 animate-fade-in">
+            <div className="h-4 flex items-center gap-2 mt-4 transition-opacity duration-[2000ms] ease-in-out animate-fade-in">
               <TextShimmer
-                className="text-xl font-medium text-white [--base-color:#ffffff] [--base-gradient-color:#5924ed]"
+                className="text-xl font-medium text-[#221F26] [--base-color:#221F26] [--base-gradient-color:#5924ed]"
                 duration={3}
               >
                 Go ahead
               </TextShimmer>
-              <Sparkles className="w-5 h-5 text-white animate-pulse-soft" />
+              <Sparkles className="w-5 h-5 text-[#221F26] animate-pulse-soft" />
             </div>
           )}
         </div>
