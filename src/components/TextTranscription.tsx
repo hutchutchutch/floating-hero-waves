@@ -33,29 +33,34 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
           return text;
         }
         
-        // Instead of looking for the last few words, try to find the longest common prefix
-        // This handles cases where the streaming API returns overlapping chunks
-        let commonIndex = 0;
+        // Check for significant overlap - improved algorithm
+        let longestOverlapLength = 0;
         const minLength = Math.min(prev.length, text.length);
         
-        // Find where the new text starts to differ
-        for (let i = 0; i < minLength; i++) {
-          if (text[i] === prev[i]) {
-            commonIndex = i + 1;
-          } else {
+        // Check for overlap at the end of prev with the start of text
+        for (let overlapLength = Math.min(40, minLength); overlapLength >= 5; overlapLength--) {
+          const prevEnd = prev.slice(-overlapLength);
+          const textStart = text.slice(0, overlapLength);
+          
+          if (prevEnd === textStart) {
+            longestOverlapLength = overlapLength;
             break;
           }
         }
         
-        // If there's a significant overlap (more than 5 characters)
-        if (commonIndex > 5) {
-          console.log(`🔍 TextTranscription - Found overlap of ${commonIndex} characters`);
-          // Only append the non-overlapping part
-          return prev + text.substring(commonIndex);
+        if (longestOverlapLength > 0) {
+          console.log(`🔍 TextTranscription - Found overlap of ${longestOverlapLength} characters`);
+          return prev + text.substring(longestOverlapLength);
         }
         
-        // If no significant overlap and not a complete update, 
-        // append with a space to avoid words running together
+        // If no significant overlap and not a complete update,
+        // check if the new text is contained within the previous text
+        if (prev.includes(text)) {
+          console.log('🔍 TextTranscription - New text is subset of previous, keeping previous');
+          return prev;
+        }
+        
+        // Append with a space to avoid words running together
         console.log('🔍 TextTranscription - No significant overlap, appending with space');
         return `${prev} ${text}`;
       });
@@ -76,7 +81,7 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
     <div className="absolute left-0 right-0 bottom-16 overflow-y-auto max-h-60 flex flex-col-reverse items-center">
       <div className="max-w-2xl w-full px-4 mb-4">
         <div 
-          className="bg-black/40 backdrop-blur-lg text-white rounded-xl px-5 py-4 max-w-[90%] ml-auto animate-slide-up whitespace-pre-wrap break-words border border-white/10 shadow-lg"
+          className="glass-morphism text-white rounded-xl px-5 py-4 max-w-[90%] ml-auto animate-slide-up whitespace-pre-wrap break-words"
         >
           {combinedText}
         </div>

@@ -1,4 +1,3 @@
-
 import webRTCHandler from './WebRTCHandler';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,6 +16,12 @@ class AudioRecorder {
   private transcriptionInterval: NodeJS.Timeout | null = null;
   private audioProcessor: ScriptProcessorNode | null = null;
   private chunkCounter = 0;
+  private lastTranscriptionTime = 0;
+  private rateLimitBackoff = 1000; // Start with 1 second
+  private isRateLimited = false;
+  private consecutiveRateLimitErrors = 0;
+  private maxConsecutiveRateLimitErrors = 3;
+  private lastRateLimitToastTime = 0;
   
   constructor() {
     this.init = this.init.bind(this);
@@ -91,6 +96,10 @@ class AudioRecorder {
     this.onTranscriptionCallback = onTranscription;
     this.recordedChunks = [];
     this.chunkCounter = 0;
+    this.lastTranscriptionTime = 0;
+    this.isRateLimited = false;
+    this.consecutiveRateLimitErrors = 0;
+    this.rateLimitBackoff = 1000; // Reset backoff to 1 second
     
     if (!this.audioStream) {
       console.log('🔊 AudioRecorder: No audio stream, initializing...');
@@ -152,39 +161,54 @@ class AudioRecorder {
           console.log(`🔊 AudioRecorder: Media recorder data available: ${event.data.size} bytes (chunk #${this.chunkCounter})`);
           if (event.data.size > 0) {
             this.recordedChunks.push(event.data);
-            // Don't process individual chunks, only process the combined blob in the interval
-            // this.processAudioChunk(event.data);
           }
         };
         
         console.log('🔊 AudioRecorder: Starting MediaRecorder...');
-        this.mediaRecorder.start(250); // Collect data every 250ms (reduced from 500ms for more frequent chunks)
+        this.mediaRecorder.start(250); // Collect data every 250ms
         
         // Start analyzing audio for visualization
         this.isRecording = true;
         this.analyzeAudio();
 
-        // Set up transcription interval (every 1 second)
+        // Set up transcription interval (every 3 seconds to reduce API calls)
         console.log('🔊 AudioRecorder: Setting up transcription interval...');
         this.transcriptionInterval = setInterval(async () => {
+          // Skip if we're rate limited
+          if (this.isRateLimited) {
+            console.log('🔊 AudioRecorder: Skipping transcription due to rate limiting');
+            return;
+          }
+          
+          // Check if enough time has passed since the last transcription
+          const now = Date.now();
+          const timeElapsed = now - this.lastTranscriptionTime;
+          const minimumInterval = this.rateLimitBackoff;
+          
+          if (timeElapsed < minimumInterval) {
+            console.log(`🔊 AudioRecorder: Skipping transcription, only ${timeElapsed}ms passed (need ${minimumInterval}ms)`);
+            return;
+          }
+          
           if (this.recordedChunks.length > 0) {
             console.log(`🔊 AudioRecorder: Processing ${this.recordedChunks.length} audio chunks for transcription`);
             
-            // Limit the number of chunks to avoid memory issues (keep last 10 seconds of audio)
-            const maxChunks = 40; // 40 chunks * 250ms = 10 seconds
+            // Keep only the most recent chunks (last 15 seconds to reduce payload size)
+            const maxChunks = 60; // 60 chunks * 250ms = 15 seconds
             if (this.recordedChunks.length > maxChunks) {
               console.log(`🔊 AudioRecorder: Limiting chunks to last ${maxChunks} (from ${this.recordedChunks.length})`);
               this.recordedChunks = this.recordedChunks.slice(-maxChunks);
             }
             
-            // Create a combined blob from all chunks for better transcription
+            // Create a combined blob from all chunks
             const combinedBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
             console.log(`🔊 AudioRecorder: Created combined blob with size: ${combinedBlob.size} bytes`);
             
             // Process the combined audio for transcription
-            this.processAudioChunk(combinedBlob);
+            this.lastTranscriptionTime = now;
+            await this.processAudioChunk(combinedBlob);
           }
-        }, 1000); // Reduced from 2000ms to 1000ms for more frequent updates
+        }, 3000); // Reduced frequency to 3 seconds to avoid hitting rate limits
         
         console.log('🔊 AudioRecorder: Recording started successfully');
       } else {
@@ -229,12 +253,47 @@ class AudioRecorder {
 
       // Send to our Edge Function
       console.log('🔊 AudioRecorder: Sending audio chunk to Supabase Edge Function...');
-      const { data, error } = await supabase.functions.invoke('transcribe', {
+      const { data, error, status } = await supabase.functions.invoke('transcribe', {
         body: { 
           audio: base64Data,
           apiKey: GROQ_API_KEY
         }
       });
+
+      if (status === 429 || (error && data?.statusCode === 429)) {
+        console.error('🔊 AudioRecorder: RATE LIMIT ERROR (429) from transcribe function');
+        
+        // Track consecutive rate limit errors
+        this.consecutiveRateLimitErrors++;
+        
+        // Set rate limited flag
+        this.isRateLimited = true;
+        
+        // Increase backoff time with each rate limit (exponential backoff)
+        this.rateLimitBackoff = Math.min(10000, this.rateLimitBackoff * 2);
+        
+        // Throttle rate limit notifications (max one per 10 seconds)
+        const now = Date.now();
+        if (now - this.lastRateLimitToastTime > 10000) {
+          this.lastRateLimitToastTime = now;
+          
+          // Notify application about rate limit via callback
+          if (this.onTranscriptionCallback) {
+            this.onTranscriptionCallback("__RATE_LIMIT_ERROR__");
+          }
+        }
+        
+        // After a delay, clear the rate limit flag
+        setTimeout(() => {
+          console.log(`🔊 AudioRecorder: Clearing rate limit flag after ${this.rateLimitBackoff}ms backoff`);
+          this.isRateLimited = false;
+        }, this.rateLimitBackoff);
+        
+        return;
+      }
+      
+      // If we get here, reset consecutive errors counter
+      this.consecutiveRateLimitErrors = 0;
 
       if (error) {
         console.error('🔊 AudioRecorder: Error from transcribe function:', error);

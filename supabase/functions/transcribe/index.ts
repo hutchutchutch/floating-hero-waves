@@ -79,6 +79,23 @@ serve(async (req) => {
 
     const responseText = await response.text();
     
+    // Check specifically for 429 rate limit errors
+    if (response.status === 429) {
+      console.error("⚠️ RATE LIMIT EXCEEDED: GROQ API returned 429 status code");
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Rate limit exceeded", 
+          statusCode: 429,
+          message: "Too many requests to the GROQ API. Please wait before trying again."
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
     if (!response.ok) {
       console.error(`GROQ API error: Status ${response.status}, Response: ${responseText}`);
       throw new Error(`GROQ API error: ${response.status} ${response.statusText}`);

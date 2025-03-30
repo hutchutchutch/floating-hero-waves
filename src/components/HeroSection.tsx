@@ -45,6 +45,18 @@ const HeroSection: React.FC = () => {
   };
 
   const handleTranscription = (text: string) => {
+    // Special case for rate limit errors
+    if (text === "__RATE_LIMIT_ERROR__") {
+      console.warn("Rate limit exceeded for transcription API");
+      toast({
+        title: "Rate Limit Exceeded",
+        description: "Too many requests to the transcription service. Pausing briefly.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      return;
+    }
+    
     if (text.trim()) {
       console.log('New transcription chunk received in HeroSection:', text);
       setTranscribedText(text);
