@@ -36,7 +36,7 @@ const HeroSection: React.FC = () => {
       <VoiceWaveform audioData={audioData} isActive={microphoneActive} />
       
       {/* Central Content */}
-      <div className="relative h-full w-full flex flex-col items-center justify-center">
+      <div className="relative h-full w-full flex flex-col items-center justify-center z-10">
         <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
         <FadingText text="Go ahead." />
       </div>
