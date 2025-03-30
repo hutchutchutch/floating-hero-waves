@@ -2,7 +2,7 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { Sparkle } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
@@ -96,12 +96,12 @@ const HeroSection: React.FC = () => {
           <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
           <div className="h-4 flex items-center gap-2 mt-4">
             <TextShimmer
-              className="text-xl text-white font-medium [--base-color:#ffffff] [--base-gradient-color:#5924ed]"
+              className="text-xl font-medium text-white [--base-color:#ffffff] [--base-gradient-color:#5924ed]"
               duration={3}
             >
               Go ahead
             </TextShimmer>
-            <Sparkle className="w-5 h-5 text-cosmic-purple animate-pulse-soft" />
+            <Sparkles className="w-5 h-5 text-white animate-pulse-soft" />
           </div>
         </div>
       </div>

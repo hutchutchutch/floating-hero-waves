@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
 import * as THREE from 'three';
 import { useGLTF, SpotLight } from '@react-three/drei';
+import { useIsMobile } from '../hooks/use-mobile';
 
 type ObjectProps = {
   position: [number, number, number];
@@ -57,12 +58,14 @@ const FloatingObject: React.FC<ObjectProps> = ({
 
 // Spotlight component positioned just above the camera
 const MainSpotlight = () => {
+  const isMobile = useIsMobile();
+  
   return (
     <SpotLight
       position={[0, 0.5, 0]} // Just above the camera
       angle={0.6}
       penumbra={0.5}
-      intensity={5} // Increased intensity even more
+      intensity={isMobile ? 2.5 : 5} // Half intensity on mobile
       color="#FEF7CD"
       castShadow
       attenuation={5}

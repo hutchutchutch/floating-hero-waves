@@ -55,9 +55,9 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioDa
         aria-label={isActive ? "Pause recording" : "Start recording"}
       >
         {isActive ? (
-          <Pause className="h-1/2 w-1/2" />
+          <Pause className="h-1/2 w-1/2 text-white" />
         ) : (
-          <Mic className="h-1/2 w-1/2" />
+          <Mic className="h-1/2 w-1/2 text-white" />
         )}
       </button>
     </div>
