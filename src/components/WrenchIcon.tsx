@@ -10,9 +10,24 @@ interface WrenchIconProps {
 
 const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
   const [opacity, setOpacity] = useState(0);
+  const [hasEverRecorded, setHasEverRecorded] = useState(false);
   
   useEffect(() => {
+    // Check if user has ever recorded
+    const storedValue = localStorage.getItem('hasEverRecorded');
+    if (storedValue === 'true') {
+      setHasEverRecorded(true);
+    }
+    
+    // If visible is true, we're recording, so set hasEverRecorded to true
     if (visible) {
+      setHasEverRecorded(true);
+      localStorage.setItem('hasEverRecorded', 'true');
+    }
+  }, [visible]);
+  
+  useEffect(() => {
+    if (visible || hasEverRecorded) {
       // Add a delay before starting the fade in
       const timeout = setTimeout(() => {
         // Gradually increase opacity over time
@@ -36,9 +51,10 @@ const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
     } else {
       setOpacity(0);
     }
-  }, [visible]);
+  }, [visible, hasEverRecorded]);
 
-  if (!visible) return null;
+  // Only return null if both visible is false AND hasEverRecorded is false
+  if (!visible && !hasEverRecorded) return null;
 
   return (
     <Sheet>
