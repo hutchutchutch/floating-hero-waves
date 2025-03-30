@@ -25,6 +25,7 @@ const HeroSection: React.FC = () => {
     
     if (!isActive) {
       setTranscribedText('');
+      setHasTranscribedContent(false);
     } else {
       // Show audio collection started toast
       toast({
@@ -79,7 +80,7 @@ const HeroSection: React.FC = () => {
       {/* Audio waveform visualization */}
       <VoiceWaveform isActive={microphoneActive} audioData={audioData} />
       
-      {/* Display transcribed text as chat bubbles */}
+      {/* Display transcribed text as a single message */}
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
       {/* Wrench icon that appears after first transcription */}
