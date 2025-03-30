@@ -6,9 +6,14 @@ import audioRecorder from '../utils/AudioRecorder';
 type MicrophoneButtonProps = {
   onToggle?: (isActive: boolean) => void;
   onAudioData?: (data: Uint8Array) => void;
+  onTranscription?: (text: string) => void;
 };
 
-const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioData }) => {
+const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ 
+  onToggle, 
+  onAudioData,
+  onTranscription 
+}) => {
   const [isActive, setIsActive] = useState(false);
 
   const handleClick = async () => {
@@ -17,11 +22,18 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioDa
     
     if (newState) {
       // Start recording
-      const success = await audioRecorder.startRecording((data) => {
-        if (onAudioData) {
-          onAudioData(data);
+      const success = await audioRecorder.startRecording(
+        (data) => {
+          if (onAudioData) {
+            onAudioData(data);
+          }
+        },
+        (text) => {
+          if (onTranscription) {
+            onTranscription(text);
+          }
         }
-      });
+      );
       
       if (!success) {
         // If recording failed, set back to inactive

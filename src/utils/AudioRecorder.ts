@@ -1,5 +1,6 @@
 
 import webRTCHandler from './WebRTCHandler';
+import { supabase } from "@/integrations/supabase/client";
 
 class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
@@ -9,22 +10,32 @@ class AudioRecorder {
   private audioData: Uint8Array | null = null;
   private isRecording = false;
   private onAudioDataCallback: ((data: Uint8Array) => void) | null = null;
+  private onTranscriptionCallback: ((text: string) => void) | null = null;
   private dummyDataInterval: NodeJS.Timeout | null = null;
   private isWebRTCConnected = false;
-
+  private recordedChunks: Blob[] = [];
+  private transcriptionInterval: NodeJS.Timeout | null = null;
+  
   constructor() {
     this.init = this.init.bind(this);
     this.startRecording = this.startRecording.bind(this);
     this.stopRecording = this.stopRecording.bind(this);
     this.analyzeAudio = this.analyzeAudio.bind(this);
     this.generateDummyData = this.generateDummyData.bind(this);
+    this.processAudioChunk = this.processAudioChunk.bind(this);
   }
 
   async init(): Promise<boolean> {
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       try {
-        this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.audioStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
         
         // Initialize WebRTC connection
         const webRTCInitialized = await webRTCHandler.init((message) => {
@@ -50,8 +61,13 @@ class AudioRecorder {
     }
   }
 
-  async startRecording(onAudioData: (data: Uint8Array) => void): Promise<boolean> {
+  async startRecording(
+    onAudioData: (data: Uint8Array) => void,
+    onTranscription: (text: string) => void
+  ): Promise<boolean> {
     this.onAudioDataCallback = onAudioData;
+    this.onTranscriptionCallback = onTranscription;
+    this.recordedChunks = [];
     
     if (!this.audioStream) {
       const initialized = await this.init();
@@ -70,13 +86,31 @@ class AudioRecorder {
         const bufferLength = this.audioAnalyser.frequencyBinCount;
         this.audioData = new Uint8Array(bufferLength);
         
-        // Create media recorder for actual recording if needed
-        this.mediaRecorder = new MediaRecorder(this.audioStream);
-        this.mediaRecorder.start();
+        // Create media recorder for actual recording
+        this.mediaRecorder = new MediaRecorder(this.audioStream, {
+          mimeType: 'audio/webm'
+        });
+        
+        this.mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            this.recordedChunks.push(event.data);
+            this.processAudioChunk(event.data);
+          }
+        };
+        
+        this.mediaRecorder.start(500); // Collect data every 500ms
         
         // Start analyzing audio for visualization
         this.isRecording = true;
         this.analyzeAudio();
+
+        // Set up transcription interval (every 2 seconds)
+        this.transcriptionInterval = setInterval(async () => {
+          if (this.recordedChunks.length > 0) {
+            const latestChunk = this.recordedChunks[this.recordedChunks.length - 1];
+            this.processAudioChunk(latestChunk);
+          }
+        }, 2000);
       } else {
         // Use dummy data if no microphone access
         this.isRecording = true;
@@ -90,6 +124,37 @@ class AudioRecorder {
       this.isRecording = true;
       this.generateDummyData();
       return true;
+    }
+  }
+
+  async processAudioChunk(chunk: Blob): Promise<void> {
+    try {
+      // Convert blob to base64
+      const arrayBuffer = await chunk.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64Data = btoa(binary);
+
+      // Send to our Edge Function
+      const { data, error } = await supabase.functions.invoke('transcribe', {
+        body: { audio: base64Data }
+      });
+
+      if (error) {
+        console.error('Error from transcribe function:', error);
+        return;
+      }
+
+      if (data?.text && this.onTranscriptionCallback) {
+        console.log('Transcription received:', data.text);
+        this.onTranscriptionCallback(data.text);
+      }
+    } catch (error) {
+      console.error('Error processing audio chunk:', error);
     }
   }
 
@@ -109,8 +174,15 @@ class AudioRecorder {
       clearInterval(this.dummyDataInterval);
       this.dummyDataInterval = null;
     }
+
+    if (this.transcriptionInterval) {
+      clearInterval(this.transcriptionInterval);
+      this.transcriptionInterval = null;
+    }
     
     this.onAudioDataCallback = null;
+    this.onTranscriptionCallback = null;
+    this.recordedChunks = [];
   }
 
   private analyzeAudio(): void {
@@ -156,6 +228,21 @@ class AudioRecorder {
       
       if (this.onAudioDataCallback) {
         this.onAudioDataCallback(dummyData);
+      }
+
+      if (this.onTranscriptionCallback) {
+        const dummyPhrases = [
+          "Hello, I'm looking for information.",
+          "Can you help me find something?",
+          "I need assistance with a question.",
+          "How does this service work?",
+          "Tell me more about this app.",
+        ];
+        
+        if (Math.random() > 0.7) {
+          const randomPhrase = dummyPhrases[Math.floor(Math.random() * dummyPhrases.length)];
+          this.onTranscriptionCallback(randomPhrase);
+        }
       }
     }, 50); // Update dummy data at 20fps
   }

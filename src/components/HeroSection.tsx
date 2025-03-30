@@ -30,39 +30,12 @@ const HeroSection: React.FC = () => {
     setAudioData(new Uint8Array(data));
   };
 
-  const simulateTranscription = () => {
-    if (microphoneActive) {
-      const dummyPhrases = [
-        "I'm looking for information about...",
-        "Can you tell me more about...",
-        "I'd like to know about...",
-        "How does this work?",
-        "What's the best way to...",
-        "Could you explain...",
-        "I'm trying to understand...",
-      ];
-      
-      const randomPhrase = dummyPhrases[Math.floor(Math.random() * dummyPhrases.length)];
-      setTranscribedText(prev => {
-        if (Math.random() > 0.7 || prev.length > 100) {
-          return randomPhrase;
-        }
-        return prev + " " + randomPhrase.toLowerCase();
-      });
+  const handleTranscription = (text: string) => {
+    if (text.trim()) {
+      console.log('Transcription received:', text);
+      setTranscribedText(text);
     }
   };
-
-  React.useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
-    if (microphoneActive) {
-      interval = setInterval(simulateTranscription, 2000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [microphoneActive]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -87,7 +60,11 @@ const HeroSection: React.FC = () => {
       
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">
         <div className="flex flex-col items-center">
-          <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
+          <MicrophoneButton 
+            onToggle={handleMicToggle} 
+            onAudioData={handleAudioData} 
+            onTranscription={handleTranscription}
+          />
           {showGoAhead && (
             <div className="h-4 mt-4 transition-opacity duration-[2000ms] ease-in-out animate-fade-in">
               <TextShimmer
