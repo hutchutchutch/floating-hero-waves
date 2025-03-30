@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as d3 from 'd3';
 import { supabase } from '@/integrations/supabase/client';
-import { getVisitorId } from '@/utils/VisitorSessionManager';
+import visitorSessionManager from '@/utils/VisitorSessionManager';
 
 // Define the graph data structure
 interface GraphNode {
@@ -26,7 +26,7 @@ interface GraphData {
 }
 
 const fetchKnowledgeGraphData = async (): Promise<GraphData> => {
-  const visitorId = getVisitorId();
+  const visitorId = visitorSessionManager.getVisitorId();
   
   const { data, error } = await supabase.functions.invoke('fetch-knowledge-graph', {
     body: { visitorId }
