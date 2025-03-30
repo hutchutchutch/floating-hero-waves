@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, Pause } from 'lucide-react';
 import audioRecorder from '../utils/AudioRecorder';
 
 type MicrophoneButtonProps = {
@@ -50,15 +50,12 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioDa
     <div className="flex flex-col items-center z-10">
       <button
         onClick={handleClick}
-        className={`h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-full flex items-center justify-center transition-all duration-300 
-          ${isActive 
-            ? 'bg-cosmic-pink text-white shadow-lg shadow-cosmic-pink/30' 
-            : 'bg-white/10 text-white backdrop-blur-sm hover:bg-white/20'
-          }`}
-        aria-label={isActive ? "Turn microphone off" : "Turn microphone on"}
+        className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-full flex items-center justify-center transition-all duration-300 
+          bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
+        aria-label={isActive ? "Pause recording" : "Start recording"}
       >
         {isActive ? (
-          <MicOff className="h-1/2 w-1/2" />
+          <Pause className="h-1/2 w-1/2" />
         ) : (
           <Mic className="h-1/2 w-1/2" />
         )}
