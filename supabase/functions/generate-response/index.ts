@@ -2,7 +2,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
-import { neo4j } from "https://esm.sh/neo4j-driver@5.18.0";
+
+// Fix the neo4j import
+import neo4jDriver from "https://esm.sh/neo4j-driver@5.18.0";
+const neo4j = { 
+  driver: neo4jDriver.driver,
+  auth: neo4jDriver.auth
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
