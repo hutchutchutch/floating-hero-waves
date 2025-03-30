@@ -182,7 +182,7 @@ const HeroSection: React.FC = () => {
         <div className="absolute left-0 right-0 top-16 overflow-y-auto max-h-60 flex flex-col items-center">
           <div className="max-w-2xl w-full px-4 mb-4">
             <div 
-              className={`bg-green-500/20 backdrop-blur-md text-white rounded-xl px-5 py-4 max-w-[90%] mr-auto animate-slide-up whitespace-pre-wrap break-words border border-green-500/30 ${isAudioPlaying ? 'border-green-400/70 shadow-lg shadow-green-500/20 animate-pulse' : ''}`}
+              className={`bg-black/40 backdrop-blur-md text-white rounded-xl px-5 py-4 max-w-[90%] mr-auto animate-slide-up whitespace-pre-wrap break-words border border-white/10 ${isAudioPlaying ? 'border-white/30 shadow-lg shadow-black/20 animate-pulse' : ''}`}
             >
               {aiResponse.content}
               {aiResponse.audio_url && isAudioPlaying && (
