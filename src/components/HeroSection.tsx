@@ -1,10 +1,10 @@
+
 import React, { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import FloatingObjects from './FloatingObjects';
 import MicrophoneButton from './MicrophoneButton';
 import FadingText from './FadingText';
-import VoiceWaveform from './VoiceWaveform';
 import TextTranscription from './TextTranscription';
 
 const HeroSection: React.FC = () => {
@@ -69,8 +69,6 @@ const HeroSection: React.FC = () => {
           </Suspense>
         </Canvas>
       </div>
-      
-      <VoiceWaveform audioData={audioData} isActive={microphoneActive} />
       
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
