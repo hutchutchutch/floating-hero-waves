@@ -2,10 +2,94 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
+import { neo4j } from "https://esm.sh/neo4j-driver@5.18.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-visitor-id',
+}
+
+// Life fulfillment domain schema categories
+const FULFILLMENT_DOMAINS = [
+  "relationships", "health", "career", "personal_growth", "spirituality", 
+  "finances", "recreation", "purpose", "emotional_wellbeing", "community"
+]
+
+// Schema for Neo4j graph database
+const SCHEMA = {
+  nodes: {
+    Person: {
+      properties: ["visitorId", "sessionId"],
+    },
+    Concept: {
+      properties: ["name", "description", "category", "importance"],
+    },
+    Goal: {
+      properties: ["name", "description", "timeline", "status", "priority"],
+    },
+    Challenge: {
+      properties: ["name", "description", "severity", "status"],
+    },
+    Value: {
+      properties: ["name", "description", "importance"],
+    },
+    Emotion: {
+      properties: ["name", "intensity", "valence", "timestamp"],
+    },
+    Habit: {
+      properties: ["name", "description", "frequency", "statusType"],
+    },
+    Achievement: {
+      properties: ["name", "description", "date"],
+    },
+  },
+  relationships: {
+    HAS_GOAL: {
+      source: "Person",
+      target: "Goal",
+      properties: ["importance", "timeline"],
+    },
+    FACES_CHALLENGE: {
+      source: "Person",
+      target: "Challenge",
+      properties: ["impact", "duration"],
+    },
+    HOLDS_VALUE: {
+      source: "Person",
+      target: "Value",
+      properties: ["strength", "alignment"],
+    },
+    FEELS: {
+      source: "Person",
+      target: "Emotion",
+      properties: ["context", "trigger", "duration"],
+    },
+    PRACTICES: {
+      source: "Person",
+      target: "Habit",
+      properties: ["consistency", "difficulty", "impact"],
+    },
+    RELATED_TO: {
+      source: "Concept",
+      target: "Concept",
+      properties: ["strength", "type"],
+    },
+    ACHIEVED: {
+      source: "Person",
+      target: "Achievement",
+      properties: ["effort", "satisfaction"],
+    },
+    SUPPORTS: {
+      source: "Concept",
+      target: "Goal",
+      properties: ["strength"],
+    },
+    HINDERS: {
+      source: "Challenge",
+      target: "Goal",
+      properties: ["severity"],
+    },
+  },
 }
 
 serve(async (req) => {
@@ -41,10 +125,45 @@ serve(async (req) => {
     const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY') || '';
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY') || '';
     
-    // Log API key status
+    // Neo4j connection details
+    const NEO4J_URI = Deno.env.get('NEO4J_URI') || '';
+    const NEO4J_USERNAME = Deno.env.get('NEO4J_USERNAME') || '';
+    const NEO4J_PASSWORD = Deno.env.get('NEO4J_PASSWORD') || '';
+    
+    // Log service key status
     console.log('GROQ API key present:', GROQ_API_KEY ? 'Yes' : 'No');
     console.log('ELEVENLABS API key present:', ELEVENLABS_API_KEY ? 'Yes' : 'No');
     console.log('PERPLEXITY API key present:', PERPLEXITY_API_KEY ? 'Yes' : 'No');
+    console.log('NEO4J connection details present:', (NEO4J_URI && NEO4J_USERNAME && NEO4J_PASSWORD) ? 'Yes' : 'No');
+    
+    // Initialize Neo4j if credentials are available
+    let neo4jDriver = null;
+    let neo4jSession = null;
+    
+    if (NEO4J_URI && NEO4J_USERNAME && NEO4J_PASSWORD) {
+      try {
+        console.log('Initializing Neo4j connection...');
+        neo4jDriver = neo4j.driver(
+          NEO4J_URI,
+          neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD)
+        );
+        
+        // Verify connection
+        await neo4jDriver.verifyConnectivity();
+        console.log('Neo4j connection verified successfully');
+        
+        // Create session
+        neo4jSession = neo4jDriver.session();
+        
+        // Create constraints and indexes if they don't exist
+        await ensureNeo4jConstraintsAndIndexes(neo4jSession);
+      } catch (neo4jError) {
+        console.error('Neo4j connection error:', neo4jError);
+        // Continue without Neo4j - we'll still generate responses
+      }
+    } else {
+      console.log('Neo4j credentials not fully configured, proceeding without Neo4j integration');
+    }
     
     // Retrieve previous conversations from this session to build context
     console.log('Retrieving previous conversations from session:', sessionId);
@@ -84,9 +203,41 @@ serve(async (req) => {
       });
       
       console.log(`Built conversation history with ${conversationHistory.length} exchanges`);
+      
+      // If Neo4j is connected, analyze previous conversations to build knowledge graph
+      if (neo4jSession) {
+        try {
+          await updateKnowledgeGraph(neo4jSession, conversationHistory, visitorId, sessionId);
+        } catch (graphError) {
+          console.error('Error updating knowledge graph:', graphError);
+          // Continue without failing if graph operations fail
+        }
+      }
     }
     
-    // Define the emotionally intelligent system prompt
+    // If Neo4j is available, get relevant contextual information
+    let knowledgeGraphContext = "";
+    let relevantConcepts = [];
+    let suggestedFollowUps = [];
+    
+    if (neo4jSession) {
+      try {
+        // Extract knowledge context from the graph
+        const graphResults = await getKnowledgeGraphContext(neo4jSession, visitorId, sessionId, text);
+        knowledgeGraphContext = graphResults.contextString;
+        relevantConcepts = graphResults.relevantConcepts;
+        suggestedFollowUps = graphResults.suggestedFollowUps;
+        
+        console.log('Retrieved knowledge graph context:', knowledgeGraphContext.substring(0, 100) + "...");
+        console.log('Relevant concepts:', relevantConcepts.slice(0, 5));
+        console.log('Suggested follow-ups:', suggestedFollowUps.slice(0, 2));
+      } catch (contextError) {
+        console.error('Error getting knowledge graph context:', contextError);
+        // Continue without graph context
+      }
+    }
+    
+    // Define the emotionally intelligent system prompt, now enhanced with knowledge graph info
     const systemPrompt = `You are an emotionally intelligent AI assistant designed to help users live a happy and fulfilling life.
 
 CORE PRINCIPLES:
@@ -99,14 +250,27 @@ CORE PRINCIPLES:
 7. Suggest actionable steps for growth when appropriate
 8. Maintain a warm, supportive tone throughout conversations
 
+KNOWLEDGE GRAPH AWARENESS:
+${knowledgeGraphContext ? `Here's what I know about this person from our previous conversations:
+${knowledgeGraphContext}
+
+This information should inform your response, but do not explicitly mention the knowledge graph or directly reference it. Just use this information to provide more personalized, relevant support.` : "I don't have any previous context about this person yet, so I'll be extra attentive to what they share and ask thoughtful questions to help them explore their thoughts and feelings."}
+
+${relevantConcepts.length > 0 ? `Concepts that may be relevant to this conversation:
+${relevantConcepts.map(c => `- ${c.name}: ${c.description}`).join('\n')}` : ""}
+
 GUIDELINES:
 - When a user shares difficulties, acknowledge emotions before offering solutions
 - If you need to challenge a perspective, do so gently and with respect
-- Build a mental knowledge graph of topics important to the user's life context
-- Connect new information to your knowledge graph for deeper understanding
-- Prioritize psychological safety and trust in all interactions
 - Help users identify their own strengths and resources
 - Use a warm, personable tone that feels like talking to a supportive friend
+- Connect to the core domains of a fulfilling life: relationships, health, career, personal growth, spirituality, finances, recreation, purpose, emotional wellbeing, and community
+
+${suggestedFollowUps.length > 0 ? `CONVERSATION GUIDANCE:
+Consider exploring these areas if appropriate in your response:
+${suggestedFollowUps.join('\n')}
+
+But only if they naturally fit the conversation flow - don't force them.` : ""}
 
 Remember that your goal is to help users gain insight into their patterns, values, and goals while offering genuine connection and support.`;
     
@@ -187,11 +351,20 @@ Remember that your goal is to help users gain insight into their patterns, value
       throw new Error('No LLM API keys configured');
     }
     
-    // Extract entities and concepts for our knowledge graph (simplified implementation)
+    // Extract entities and insights for our knowledge graph
     try {
       console.log('Analyzing response for knowledge graph entities...');
-      // In a real implementation, we might use NLP or another AI call to extract entities
-      // For now, we'll just store the raw text
+      
+      if (neo4jSession) {
+        // Process the current exchange and store insights in Neo4j
+        await processExchangeForKnowledgeGraph(
+          neo4jSession, 
+          text, 
+          responseText, 
+          visitorId || "anonymous", 
+          sessionId
+        );
+      }
       
       // Save response to database
       const { data: responseData, error: insertError } = await supabase
@@ -326,6 +499,23 @@ Remember that your goal is to help users gain insight into their patterns, value
         console.log('ElevenLabs API key not configured, skipping audio generation');
       }
       
+      // Clean up Neo4j session if it exists
+      if (neo4jSession) {
+        try {
+          await neo4jSession.close();
+        } catch (closeError) {
+          console.error('Error closing Neo4j session:', closeError);
+        }
+      }
+      
+      if (neo4jDriver) {
+        try {
+          await neo4jDriver.close();
+        } catch (closeError) {
+          console.error('Error closing Neo4j driver:', closeError);
+        }
+      }
+      
       return new Response(
         JSON.stringify({
           id: responseData[0].id,
@@ -360,3 +550,254 @@ Remember that your goal is to help users gain insight into their patterns, value
     );
   }
 });
+
+// Helper function to ensure Neo4j constraints and indexes exist
+async function ensureNeo4jConstraintsAndIndexes(session) {
+  console.log('Setting up Neo4j constraints and indexes...');
+  
+  try {
+    // Create constraints for Person nodes
+    await session.run(`
+      CREATE CONSTRAINT person_id IF NOT EXISTS
+      FOR (p:Person) REQUIRE p.visitorId IS UNIQUE
+    `);
+    
+    // Create indices for faster queries
+    await session.run(`
+      CREATE INDEX concept_name IF NOT EXISTS
+      FOR (c:Concept) ON (c.name)
+    `);
+    
+    console.log('Neo4j constraints and indexes created successfully');
+  } catch (error) {
+    console.error('Error setting up Neo4j constraints:', error);
+    throw error;
+  }
+}
+
+// Process a conversation exchange and store insights in Neo4j
+async function processExchangeForKnowledgeGraph(session, userText, assistantText, visitorId, sessionId) {
+  console.log('Processing exchange for knowledge graph...');
+  
+  try {
+    // First, ensure the Person node exists
+    await session.run(`
+      MERGE (p:Person {visitorId: $visitorId})
+      ON CREATE SET p.sessionId = $sessionId, p.firstSeen = datetime()
+      ON MATCH SET p.lastSeen = datetime(), p.sessionId = $sessionId
+      RETURN p
+    `, { visitorId, sessionId });
+    
+    // Simple keyword-based extraction for now
+    // In a real implementation, we would use the LLM to extract entities/concepts/etc.
+    const domainKeywords = {
+      relationships: ["family", "friend", "partner", "spouse", "colleague", "connection", "relationship", "social"],
+      health: ["exercise", "nutrition", "sleep", "wellness", "health", "fitness", "medical", "diet"],
+      career: ["job", "work", "career", "profession", "business", "employment", "workplace"],
+      personal_growth: ["learning", "growth", "development", "skill", "improvement", "progress", "goal"],
+      spirituality: ["faith", "spiritual", "meditation", "mindfulness", "belief", "religion", "purpose"],
+      finances: ["money", "financial", "saving", "investment", "budget", "expense", "income", "debt"],
+      recreation: ["hobby", "leisure", "fun", "recreation", "entertainment", "relax", "vacation"],
+      purpose: ["meaning", "purpose", "mission", "passion", "direction", "contribution", "impact"],
+      emotional_wellbeing: ["emotion", "feeling", "mental health", "stress", "anxiety", "depression", "happiness"],
+      community: ["community", "volunteer", "society", "belonging", "contribution", "service"],
+    };
+    
+    // Extract potential concepts from the user text
+    const combinedText = userText + " " + assistantText;
+    const concepts = [];
+    
+    // For each domain, check if related keywords appear in the text
+    for (const [domain, keywords] of Object.entries(domainKeywords)) {
+      for (const keyword of keywords) {
+        if (combinedText.toLowerCase().includes(keyword.toLowerCase())) {
+          // Found a keyword related to this domain
+          const keywordIndex = combinedText.toLowerCase().indexOf(keyword.toLowerCase());
+          // Extract a bit of context (100 chars around the keyword)
+          const start = Math.max(0, keywordIndex - 50);
+          const end = Math.min(combinedText.length, keywordIndex + keyword.length + 50);
+          const context = combinedText.substring(start, end);
+          
+          concepts.push({
+            name: keyword,
+            description: context,
+            category: domain,
+            importance: 0.5, // Default importance
+          });
+          
+          break; // Only add one concept per domain for now
+        }
+      }
+    }
+    
+    // Create Concept nodes and relationships to the Person
+    for (const concept of concepts) {
+      await session.run(`
+        MERGE (c:Concept {name: $name, category: $category})
+        ON CREATE SET c.description = $description, c.importance = $importance, c.created = datetime()
+        ON MATCH SET c.description = $description, c.updated = datetime()
+        
+        WITH c
+        MATCH (p:Person {visitorId: $visitorId})
+        MERGE (p)-[r:INTERESTED_IN]->(c)
+        ON CREATE SET r.firstMentioned = datetime(), r.strength = 0.5
+        ON MATCH SET r.lastMentioned = datetime(), r.strength = r.strength + 0.1
+        RETURN c, p, r
+      `, {
+        visitorId,
+        name: concept.name,
+        description: concept.description,
+        category: concept.category,
+        importance: concept.importance,
+      });
+    }
+    
+    console.log(`Added ${concepts.length} concepts to knowledge graph for person ${visitorId}`);
+    
+    // Store the complete exchange as a Conversation node
+    await session.run(`
+      MATCH (p:Person {visitorId: $visitorId})
+      CREATE (conv:Conversation {
+        userText: $userText,
+        assistantText: $assistantText,
+        timestamp: datetime(),
+        sessionId: $sessionId
+      })
+      CREATE (p)-[:HAD_CONVERSATION]->(conv)
+      RETURN conv
+    `, { visitorId, userText, assistantText, sessionId });
+    
+    return true;
+  } catch (error) {
+    console.error('Error processing exchange for knowledge graph:', error);
+    throw error;
+  }
+}
+
+// Get relevant context from the knowledge graph to enhance LLM response
+async function getKnowledgeGraphContext(session, visitorId, sessionId, currentText) {
+  console.log('Retrieving knowledge graph context...');
+  
+  const contextString = [];
+  const relevantConcepts = [];
+  const suggestedFollowUps = [];
+  
+  try {
+    // Check if the person exists in the graph
+    const personResult = await session.run(`
+      MATCH (p:Person {visitorId: $visitorId})
+      RETURN p
+    `, { visitorId });
+    
+    if (personResult.records.length === 0) {
+      console.log('No person found in knowledge graph for visitor ID:', visitorId);
+      return { 
+        contextString: "", 
+        relevantConcepts: [], 
+        suggestedFollowUps: [
+          "Ask what brings them joy in life",
+          "Explore what they find meaningful in their daily activities",
+          "Inquire about their personal definition of success"
+        ] 
+      };
+    }
+    
+    // Get the concepts the person has shown interest in
+    const conceptsResult = await session.run(`
+      MATCH (p:Person {visitorId: $visitorId})-[r:INTERESTED_IN]->(c:Concept)
+      RETURN c.name AS name, c.description AS description, c.category AS category, r.strength AS strength
+      ORDER BY r.strength DESC
+      LIMIT 10
+    `, { visitorId });
+    
+    // For each concept, add to relevant concepts
+    conceptsResult.records.forEach(record => {
+      relevantConcepts.push({
+        name: record.get('name'),
+        description: record.get('description'),
+        category: record.get('category'),
+        strength: record.get('strength'),
+      });
+      
+      contextString.push(`They've mentioned interest in ${record.get('name')} (related to ${record.get('category')}).`);
+    });
+    
+    // Get previous conversations
+    const conversationsResult = await session.run(`
+      MATCH (p:Person {visitorId: $visitorId})-[:HAD_CONVERSATION]->(conv:Conversation)
+      RETURN conv.userText AS userText, conv.assistantText AS assistantText, conv.timestamp AS timestamp
+      ORDER BY conv.timestamp DESC
+      LIMIT 5
+    `, { visitorId });
+    
+    if (conversationsResult.records.length > 0) {
+      contextString.push("From previous conversations, I know:");
+      
+      conversationsResult.records.forEach(record => {
+        const userText = record.get('userText');
+        // Just add a brief summary of what they talked about
+        contextString.push(`- They discussed: "${userText.substring(0, 100)}${userText.length > 100 ? '...' : ''}"`);
+      });
+    }
+    
+    // Generate suggested follow-up questions based on domains not yet explored
+    const exploredDomains = new Set(relevantConcepts.map(c => c.category));
+    const unexploredDomains = FULFILLMENT_DOMAINS.filter(domain => !exploredDomains.has(domain));
+    
+    // Create follow-up questions for unexplored domains
+    unexploredDomains.slice(0, 3).forEach(domain => {
+      switch(domain) {
+        case 'relationships':
+          suggestedFollowUps.push("Ask about their key relationships and social connections");
+          break;
+        case 'health':
+          suggestedFollowUps.push("Explore their perspective on physical health and wellbeing");
+          break;
+        case 'career':
+          suggestedFollowUps.push("Inquire about their work satisfaction and career aspirations");
+          break;
+        case 'personal_growth':
+          suggestedFollowUps.push("Ask what areas of personal growth they're focused on");
+          break;
+        case 'spirituality':
+          suggestedFollowUps.push("Explore what gives their life meaning and purpose");
+          break;
+        case 'finances':
+          suggestedFollowUps.push("Ask about their relationship with financial security");
+          break;
+        case 'recreation':
+          suggestedFollowUps.push("Inquire about activities that bring them joy and recreation");
+          break;
+        case 'purpose':
+          suggestedFollowUps.push("Explore what gives their life meaning and direction");
+          break;
+        case 'emotional_wellbeing':
+          suggestedFollowUps.push("Ask about their emotional landscape and coping strategies");
+          break;
+        case 'community':
+          suggestedFollowUps.push("Inquire about their sense of community and belonging");
+          break;
+      }
+    });
+    
+    // Also add some generic follow-ups if we don't have many specific ones
+    if (suggestedFollowUps.length < 3) {
+      suggestedFollowUps.push("Ask what brings them joy in life");
+      suggestedFollowUps.push("Explore what they find meaningful in their daily activities");
+      suggestedFollowUps.push("Inquire about their personal definition of success");
+    }
+    
+    return {
+      contextString: contextString.join('\n'),
+      relevantConcepts,
+      suggestedFollowUps: suggestedFollowUps.slice(0, 3) // Limit to 3 suggestions
+    };
+  } catch (error) {
+    console.error('Error getting knowledge graph context:', error);
+    return { 
+      contextString: "", 
+      relevantConcepts: [], 
+      suggestedFollowUps: [] 
+    };
+  }
+}
