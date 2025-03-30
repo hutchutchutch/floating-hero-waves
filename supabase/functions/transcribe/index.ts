@@ -17,17 +17,18 @@ serve(async (req) => {
   }
 
   try {
-    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+    const requestData = await req.json();
+    const { audio, apiKey } = requestData;
+    
+    // Use API key from request or fall back to environment variable
+    const GROQ_API_KEY = apiKey || Deno.env.get('GROQ_API_KEY');
     if (!GROQ_API_KEY) {
-      console.error("GROQ API key not configured in edge function secrets");
-      throw new Error('GROQ API key not configured in edge function secrets');
+      console.error("GROQ API key not provided in request and not configured in edge function secrets");
+      throw new Error('GROQ API key not available');
     } else {
       console.log("Found GROQ API key with length:", GROQ_API_KEY.length);
       console.log("GROQ API key first 4 chars:", GROQ_API_KEY.substring(0, 4));
     }
-
-    const requestData = await req.json();
-    const { audio } = requestData;
     
     if (!audio) {
       console.error("No audio data provided in request");
@@ -78,6 +79,9 @@ serve(async (req) => {
     try {
       const result = JSON.parse(responseText);
       console.log('Transcription result:', result);
+      console.log('Transcription text:', result.text);
+      console.log('Transcription text length:', result.text.length);
+      console.log('Transcription word count:', result.text.split(' ').length);
       
       // Log if we're getting "Thank you." as a default response
       if (result.text === "Thank you." || result.text.includes("Thank you")) {
@@ -85,9 +89,28 @@ serve(async (req) => {
         console.warn('Full audio data length:', bytes.length, 'bytes');
         console.warn('Audio response quality may be poor or silence was detected.');
       }
+      
+      // Log if we're getting a very short response
+      if (result.text.length < 10) {
+        console.warn('Detected very short response:', result.text);
+        console.warn('This might indicate a partial transcription or an issue with the audio quality.');
+      }
 
+      // Return the full result object for debugging
+      const responseObj = { 
+        text: result.text,
+        debug: {
+          textLength: result.text.length,
+          wordCount: result.text.split(' ').length,
+          audioBytes: bytes.length,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      console.log('Sending response to client:', responseObj);
+      
       return new Response(
-        JSON.stringify({ text: result.text }),
+        JSON.stringify(responseObj),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }

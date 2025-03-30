@@ -152,26 +152,39 @@ class AudioRecorder {
           console.log(`🔊 AudioRecorder: Media recorder data available: ${event.data.size} bytes (chunk #${this.chunkCounter})`);
           if (event.data.size > 0) {
             this.recordedChunks.push(event.data);
-            this.processAudioChunk(event.data);
+            // Don't process individual chunks, only process the combined blob in the interval
+            // this.processAudioChunk(event.data);
           }
         };
         
         console.log('🔊 AudioRecorder: Starting MediaRecorder...');
-        this.mediaRecorder.start(500); // Collect data every 500ms
+        this.mediaRecorder.start(250); // Collect data every 250ms (reduced from 500ms for more frequent chunks)
         
         // Start analyzing audio for visualization
         this.isRecording = true;
         this.analyzeAudio();
 
-        // Set up transcription interval (every 2 seconds)
+        // Set up transcription interval (every 1 second)
         console.log('🔊 AudioRecorder: Setting up transcription interval...');
         this.transcriptionInterval = setInterval(async () => {
           if (this.recordedChunks.length > 0) {
             console.log(`🔊 AudioRecorder: Processing ${this.recordedChunks.length} audio chunks for transcription`);
-            const latestChunk = this.recordedChunks[this.recordedChunks.length - 1];
-            this.processAudioChunk(latestChunk);
+            
+            // Limit the number of chunks to avoid memory issues (keep last 10 seconds of audio)
+            const maxChunks = 40; // 40 chunks * 250ms = 10 seconds
+            if (this.recordedChunks.length > maxChunks) {
+              console.log(`🔊 AudioRecorder: Limiting chunks to last ${maxChunks} (from ${this.recordedChunks.length})`);
+              this.recordedChunks = this.recordedChunks.slice(-maxChunks);
+            }
+            
+            // Create a combined blob from all chunks for better transcription
+            const combinedBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+            console.log(`🔊 AudioRecorder: Created combined blob with size: ${combinedBlob.size} bytes`);
+            
+            // Process the combined audio for transcription
+            this.processAudioChunk(combinedBlob);
           }
-        }, 2000);
+        }, 1000); // Reduced from 2000ms to 1000ms for more frequent updates
         
         console.log('🔊 AudioRecorder: Recording started successfully');
       } else {
@@ -208,10 +221,19 @@ class AudioRecorder {
       const base64Data = btoa(binary);
       console.log(`🔊 AudioRecorder: Converted to base64 string with length ${base64Data.length}`);
 
+      // Get the GROQ API key from the environment
+      const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
+      if (!GROQ_API_KEY) {
+        console.warn('🔊 AudioRecorder: VITE_GROQ_API_KEY not found in environment variables');
+      }
+
       // Send to our Edge Function
       console.log('🔊 AudioRecorder: Sending audio chunk to Supabase Edge Function...');
       const { data, error } = await supabase.functions.invoke('transcribe', {
-        body: { audio: base64Data }
+        body: { 
+          audio: base64Data,
+          apiKey: GROQ_API_KEY
+        }
       });
 
       if (error) {
@@ -221,11 +243,19 @@ class AudioRecorder {
 
       if (data?.text) {
         console.log('🔊 AudioRecorder: Transcription successfully received:', data.text);
+        console.log('🔊 AudioRecorder: Transcription length:', data.text.length);
+        console.log('🔊 AudioRecorder: Transcription word count:', data.text.split(' ').length);
+        
+        // Log the full response for debugging
+        console.log('🔊 AudioRecorder: Full response data:', JSON.stringify(data));
+        
         if (this.onTranscriptionCallback) {
+          console.log('🔊 AudioRecorder: Calling transcription callback with text:', data.text);
           this.onTranscriptionCallback(data.text);
         }
       } else {
         console.log('🔊 AudioRecorder: No transcription text in response:', data);
+        console.log('🔊 AudioRecorder: Full response data for debugging:', JSON.stringify(data));
       }
     } catch (error) {
       console.error('🔊 AudioRecorder: Error processing audio chunk:', error);

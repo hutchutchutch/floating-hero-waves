@@ -14,6 +14,8 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
   useEffect(() => {
     if (text && isActive) {
       console.log('🔍 TextTranscription - Received new transcription text:', text);
+      console.log('🔍 TextTranscription - Text length:', text.length);
+      console.log('🔍 TextTranscription - Text word count:', text.split(' ').length);
       console.log('🔍 TextTranscription - Current accumulated text:', allText);
       
       // Debug if we're getting "Thank you." by default
@@ -21,9 +23,16 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
         console.warn('🔍 TextTranscription - Detected "Thank you." message - this may be a default response');
       }
       
+      // Check if text is just a partial sentence or word
+      if (text.length < 10) {
+        console.log('🔍 TextTranscription - Received short text, might be partial:', text);
+      }
+      
       setAllText(prev => {
         const combined = prev ? `${prev} ${text}` : text;
         console.log('🔍 TextTranscription - Updated accumulated text:', combined);
+        console.log('🔍 TextTranscription - Updated text length:', combined.length);
+        console.log('🔍 TextTranscription - Updated word count:', combined.split(' ').length);
         return combined;
       });
     }
