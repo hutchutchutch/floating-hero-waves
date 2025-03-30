@@ -11,6 +11,7 @@ interface WrenchIconProps {
 const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
   const [opacity, setOpacity] = useState(0);
   const [hasEverRecorded, setHasEverRecorded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   
   useEffect(() => {
     // Check if user has ever recorded
@@ -56,16 +57,23 @@ const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
   // Only return null if both visible is false AND hasEverRecorded is false
   if (!visible && !hasEverRecorded) return null;
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    console.log('Sheet open state changed:', open);
+  };
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <div 
-          className="absolute top-6 right-6 p-3 rounded-full bg-white/10 backdrop-blur-sm"
+          className="absolute top-6 right-6 p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors"
           style={{ 
             opacity: opacity,
             transition: 'opacity 100ms linear',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            zIndex: 50
           }}
+          onClick={() => console.log('Wrench icon clicked')}
         >
           <Wrench className="w-6 h-6 text-[#EFEEE2]" />
         </div>
