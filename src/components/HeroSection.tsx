@@ -1,4 +1,3 @@
-
 import React, { Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -72,14 +71,12 @@ const HeroSection: React.FC = () => {
     };
   }, [microphoneActive]);
 
-  // Check API key on component mount
   useEffect(() => {
     if (!isGroqKeyConfigured()) {
       console.warn("GROQ API Key not configured. WebRTC streaming will not work.");
     }
   }, []);
 
-  // Fade in "Go ahead" text after 5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowGoAhead(true);
