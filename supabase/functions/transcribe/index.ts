@@ -20,8 +20,8 @@ serve(async (req) => {
     const requestData = await req.json();
     const { audio, apiKey } = requestData;
     
-    // Use API key from request or fall back to environment variable
-    const GROQ_API_KEY = apiKey || Deno.env.get('GROQ_API_KEY');
+    // Use API key from request or fall back to environment variable with the updated name
+    const GROQ_API_KEY = apiKey || Deno.env.get('VITE_GROQ_API_KEY');
     if (!GROQ_API_KEY) {
       console.error("GROQ API key not provided in request and not configured in edge function secrets");
       throw new Error('GROQ API key not available');

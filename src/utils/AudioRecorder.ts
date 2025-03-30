@@ -221,7 +221,7 @@ class AudioRecorder {
       const base64Data = btoa(binary);
       console.log(`🔊 AudioRecorder: Converted to base64 string with length ${base64Data.length}`);
 
-      // Get the GROQ API key from the environment
+      // Get the GROQ API key from the environment with the updated name
       const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
       if (!GROQ_API_KEY) {
         console.warn('🔊 AudioRecorder: VITE_GROQ_API_KEY not found in environment variables');
