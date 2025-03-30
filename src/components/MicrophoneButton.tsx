@@ -27,20 +27,33 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   const transcriptionCountRef = useRef<number>(0);
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const hasStartedSessionRef = useRef<boolean>(false);
 
   // Handle starting a new recording session
   const startRecordingSession = async () => {
     console.log('🎤 Starting new recording session');
+    
+    // Prevent multiple session starts
+    if (hasStartedSessionRef.current) {
+      console.log('🎤 Session already started, skipping');
+      return null;
+    }
+    
+    hasStartedSessionRef.current = true;
     const sessionId = await recordingManager.startNewSession();
+    
     if (sessionId) {
       console.log('🎤 New session started with ID:', sessionId);
+      return sessionId;
     } else {
       console.error('🎤 Failed to start new recording session');
+      hasStartedSessionRef.current = false;
       toast({
         title: "Session Error",
         description: "Could not start a new recording session",
         variant: "destructive",
       });
+      return null;
     }
   };
 
@@ -48,6 +61,8 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   const endRecordingSession = async () => {
     console.log('🎤 Ending current recording session');
     await recordingManager.endSession();
+    hasStartedSessionRef.current = false;
+    
     if (sessionTimerRef.current) {
       clearTimeout(sessionTimerRef.current);
       sessionTimerRef.current = null;
@@ -67,8 +82,50 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
     try {
       // Get the current transcription ID
       const transcriptions = await recordingManager.getSessionTranscriptions();
+      
+      console.log('🎤 Found transcriptions:', transcriptions.length);
+      
       if (transcriptions.length === 0) {
         console.error('🎤 No transcriptions found for current session');
+        
+        // Current session might have ended, try to start a new one and save the transcription directly
+        const sessionId = await startRecordingSession();
+        if (!sessionId) {
+          setIsProcessing(false);
+          return;
+        }
+        
+        // Save the transcription manually
+        const savedTranscription = await recordingManager.saveTranscription(text, 5.0);
+        
+        if (!savedTranscription) {
+          console.error('🎤 Failed to save transcription');
+          setIsProcessing(false);
+          return;
+        }
+        
+        console.log('🎤 Created new transcription with ID:', savedTranscription.id);
+        
+        // Mark the new transcription as final
+        await recordingManager.finalizeTranscription(savedTranscription.id);
+        
+        // Generate the response
+        const response = await recordingManager.generateAndSaveResponse(
+          savedTranscription.id,
+          text
+        );
+        
+        if (response && onAiResponse) {
+          console.log('🎤 AI response generated:', response);
+          onAiResponse(response);
+          
+          toast({
+            title: "Response Ready",
+            description: "AI has responded to your input",
+            className: "bg-white/10 text-white backdrop-blur-md border-none",
+          });
+        }
+        
         setIsProcessing(false);
         return;
       }
@@ -93,6 +150,13 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
           title: "Response Ready",
           description: "AI has responded to your input",
           className: "bg-white/10 text-white backdrop-blur-md border-none",
+        });
+      } else {
+        console.error('🎤 Failed to generate AI response or no callback provided');
+        toast({
+          title: "Response Error",
+          description: "Could not generate AI response",
+          variant: "destructive",
         });
       }
     } catch (error) {

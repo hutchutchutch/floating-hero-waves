@@ -21,7 +21,7 @@ serve(async (req) => {
     const { audio, apiKey } = requestData;
     
     // Use API key from request or fall back to environment variable with the updated name
-    const GROQ_API_KEY = apiKey || Deno.env.get('VITE_GROQ_API_KEY');
+    const GROQ_API_KEY = apiKey || Deno.env.get('VITE_GROQ_API_KEY') || Deno.env.get('GROQ_API_KEY');
     
     // Debug logging for API key availability
     console.log("Checking for GROQ API key sources:");
@@ -60,8 +60,7 @@ serve(async (req) => {
     // Create FormData to send to GROQ API
     const formData = new FormData();
     
-    // Fix: Use proper audio/webm MIME type instead of audio/wav
-    // Whisper expects webm, mp3, mp4, mpeg, mpga, m4a, wav, or webm formats
+    // Use proper audio/webm MIME type
     const audioBlob = new Blob([bytes], { type: 'audio/webm' });
     
     console.log(`Created audio blob with size: ${audioBlob.size} bytes and type: ${audioBlob.type}`);

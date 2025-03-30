@@ -25,9 +25,19 @@ class RecordingManager {
   async startNewSession(): Promise<string | null> {
     console.log('📝 RecordingManager: Starting new session');
     try {
+      // Check if user is authenticated
+      const { data: authData } = await supabase.auth.getSession();
+      const userId = authData?.session?.user?.id;
+      
+      // Create session object
+      const sessionData: any = {};
+      if (userId) {
+        sessionData.user_id = userId;
+      }
+      
       const { data, error } = await supabase
         .from('sessions')
-        .insert({})
+        .insert(sessionData)
         .select();
         
       if (error) {
@@ -175,6 +185,9 @@ class RecordingManager {
     try {
       this.isFetchingResponse = true;
       console.log('📝 RecordingManager: Generating response for transcription:', transcriptionId);
+      console.log('📝 RecordingManager: Using session ID:', sessionId);
+      console.log('📝 RecordingManager: Text length:', fullText.length);
+      console.log('📝 RecordingManager: Text preview:', fullText.substring(0, 100) + (fullText.length > 100 ? '...' : ''));
       
       // Call our edge function to generate a response
       const { data, error } = await supabase.functions.invoke('generate-response', {
@@ -192,6 +205,13 @@ class RecordingManager {
       }
       
       console.log('📝 RecordingManager: Response generated:', data);
+      
+      if (!data || !data.text) {
+        console.error('📝 RecordingManager: Invalid response data:', data);
+        this.isFetchingResponse = false;
+        return null;
+      }
+      
       this.isFetchingResponse = false;
       
       return {

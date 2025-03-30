@@ -33,8 +33,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     
     // API keys for external services
-    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || Deno.env.get('VITE_GROQ_API_KEY') || '';
     const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY') || '';
+    
+    // Log API key status
+    console.log('GROQ API key present:', GROQ_API_KEY ? 'Yes' : 'No');
+    console.log('ELEVENLABS API key present:', ELEVENLABS_API_KEY ? 'Yes' : 'No');
     
     if (!GROQ_API_KEY) {
       throw new Error('GROQ API key not configured');
@@ -90,7 +94,20 @@ serve(async (req) => {
     // Generate audio with ElevenLabs if API key is available
     if (ELEVENLABS_API_KEY) {
       console.log('Generating audio with ElevenLabs...');
+      
+      // Use a more manageable text size for TTS (first 1000 chars)
+      const ttsText = responseText.length > 1000 ? 
+        responseText.substring(0, 1000) + "..." : 
+        responseText;
+      
       try {
+        // Log the request details for debugging
+        console.log('ElevenLabs request details:');
+        console.log('- Voice ID: 21m00Tcm4TlvDq8ikWAM');
+        console.log('- Model: eleven_monolingual_v1');
+        console.log('- Text length:', ttsText.length);
+        console.log('- Text preview:', ttsText.substring(0, 100) + '...');
+        
         const audioResponse = await fetch('https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', {
           method: 'POST',
           headers: {
@@ -98,7 +115,7 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            text: responseText,
+            text: ttsText,
             model_id: 'eleven_monolingual_v1',
             voice_settings: {
               stability: 0.5,
@@ -107,10 +124,14 @@ serve(async (req) => {
           })
         });
         
+        // Log the response status and headers
+        console.log('ElevenLabs response status:', audioResponse.status);
+        console.log('ElevenLabs response headers:', Object.fromEntries(audioResponse.headers.entries()));
+        
         if (!audioResponse.ok) {
           const elevenlabsError = await audioResponse.text();
           console.error('ElevenLabs API error:', audioResponse.status, elevenlabsError);
-          throw new Error(`ElevenLabs API error: ${audioResponse.status}`);
+          throw new Error(`ElevenLabs API error: ${audioResponse.status} - ${elevenlabsError}`);
         }
         
         // Get audio as array buffer
@@ -120,6 +141,28 @@ serve(async (req) => {
         
         // Upload to Supabase Storage
         const fileName = `responses/${sessionId}/${responseData[0].id}.mp3`;
+        
+        // Ensure the storage bucket exists
+        const { data: bucketData, error: bucketError } = await supabase
+          .storage
+          .getBucket('audio');
+        
+        // Create bucket if it doesn't exist
+        if (bucketError) {
+          console.log('Audio bucket not found, attempting to create it...');
+          const { error: createBucketError } = await supabase
+            .storage
+            .createBucket('audio', {
+              public: true
+            });
+            
+          if (createBucketError) {
+            console.error('Error creating audio bucket:', createBucketError);
+            throw new Error(`Storage bucket creation error: ${createBucketError.message}`);
+          }
+          console.log('Audio bucket created successfully');
+        }
+        
         const { data: storageData, error: storageError } = await supabase
           .storage
           .from('audio')

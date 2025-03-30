@@ -81,12 +81,26 @@ const HeroSection: React.FC = () => {
     // Play audio if available
     if (response.audio_url) {
       if (audioRef.current) {
+        audioRef.current.pause(); // Stop any currently playing audio
         audioRef.current.src = response.audio_url;
+        
+        console.log('Playing audio from URL:', response.audio_url);
+        
         audioRef.current.play().catch(error => {
           console.error('Error playing audio:', error);
+          toast({
+            title: "Audio Playback Error",
+            description: "Could not play the AI voice response",
+            variant: "destructive",
+          });
         });
+        
         setIsAudioPlaying(true);
+      } else {
+        console.error('Audio element reference not available');
       }
+    } else {
+      console.log('No audio URL provided in the response');
     }
     
     toast({
@@ -114,6 +128,16 @@ const HeroSection: React.FC = () => {
       audioRef.current.onerror = (e) => {
         console.error('Audio playback error:', e);
         setIsAudioPlaying(false);
+        toast({
+          title: "Audio Error",
+          description: "Failed to play the audio response",
+          variant: "destructive",
+        });
+      };
+      
+      // Add loadeddata event to verify the audio is loaded
+      audioRef.current.onloadeddata = () => {
+        console.log('Audio data loaded successfully');
       };
     }
     
