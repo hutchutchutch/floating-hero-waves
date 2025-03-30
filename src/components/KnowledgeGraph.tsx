@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as d3 from 'd3';
 import { supabase } from '@/integrations/supabase/client';
 import visitorSessionManager from '@/utils/VisitorSessionManager';
+import { toast } from 'sonner';
 
 // Define the graph data structure
 interface GraphNode {
@@ -28,16 +29,30 @@ interface GraphData {
 const fetchKnowledgeGraphData = async (): Promise<GraphData> => {
   const visitorId = visitorSessionManager.getVisitorId();
   
-  const { data, error } = await supabase.functions.invoke('fetch-knowledge-graph', {
-    body: { visitorId }
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke('fetch-knowledge-graph', {
+      body: { visitorId }
+    });
 
-  if (error) {
+    if (error) {
+      console.error('Error fetching knowledge graph data:', error);
+      toast.error('Failed to load knowledge graph');
+      throw new Error('Failed to fetch graph data');
+    }
+
+    return data;
+  } catch (error) {
     console.error('Error fetching knowledge graph data:', error);
-    throw new Error('Failed to fetch graph data');
+    // Return a minimal valid graph structure so the component doesn't crash
+    return {
+      nodes: [{
+        id: `person-${visitorId}`,
+        name: 'You',
+        group: 'Person'
+      }],
+      links: []
+    };
   }
-
-  return data;
 };
 
 const KnowledgeGraph: React.FC = () => {
@@ -47,7 +62,9 @@ const KnowledgeGraph: React.FC = () => {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['knowledgeGraph'],
-    queryFn: fetchKnowledgeGraphData
+    queryFn: fetchKnowledgeGraphData,
+    retry: 2,
+    retryDelay: 1000
   });
 
   useEffect(() => {
@@ -125,7 +142,7 @@ const KnowledgeGraph: React.FC = () => {
       .attr("dy", ".35em")
       .text((d: any) => d.name)
       .style("font-size", "10px")
-      .style("fill", "#fff");
+      .style("fill", "#EFEEE2");
 
     // Tooltip for showing more details
     const tooltip = d3.select(tooltipRef.current);
@@ -188,27 +205,26 @@ const KnowledgeGraph: React.FC = () => {
     };
   }, [data, dimensions]);
 
-  if (isLoading) return <div className="p-4 text-center">Loading knowledge graph...</div>;
-  if (error) return <div className="p-4 text-center text-red-500">Error loading knowledge graph</div>;
+  if (isLoading) return <div className="p-4 text-center text-[#EFEEE2]">Loading knowledge graph...</div>;
+  if (error) return <div className="p-4 text-center text-red-500">Error loading knowledge graph. Please try again later.</div>;
   if (!data || data.nodes.length === 0) {
-    return <div className="p-4 text-center">No knowledge graph data available yet. Continue conversations to build your personal knowledge graph.</div>;
+    return <div className="p-4 text-center text-[#EFEEE2]">No knowledge graph data available yet. Continue conversations to build your personal knowledge graph.</div>;
   }
 
   return (
     <div className="p-2">
-      <h2 className="text-xl font-semibold mb-4">Your Personal Knowledge Graph</h2>
       <div className="knowledge-graph-container border border-white/10 rounded-lg overflow-hidden">
-        <svg ref={svgRef} width={dimensions.width} height={dimensions.height} />
+        <svg ref={svgRef} width={dimensions.width} height={dimensions.height} className="bg-black/30" />
         <div 
           ref={tooltipRef} 
-          className="tooltip absolute opacity-0 pointer-events-none bg-black/80 text-white p-2 rounded text-sm max-w-xs"
+          className="tooltip absolute opacity-0 pointer-events-none bg-black/80 text-[#EFEEE2] p-2 rounded text-sm max-w-xs"
           style={{ 
             transition: 'opacity 0.2s',
             zIndex: 1000
           }} 
         />
       </div>
-      <div className="mt-4 text-sm text-muted-foreground">
+      <div className="mt-4 text-sm text-[#EFEEE2]/70">
         <p>This graph visualizes concepts from your conversations. Drag nodes to explore connections.</p>
       </div>
     </div>

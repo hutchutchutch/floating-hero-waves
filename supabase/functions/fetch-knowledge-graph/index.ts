@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
-import { neo4j } from "https://esm.sh/neo4j-driver@5.18.0";
+import neo4jDriver from "https://esm.sh/neo4j-driver@5.18.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,26 +33,26 @@ serve(async (req) => {
     }
     
     // Connect to Neo4j
-    let neo4jDriver = null;
-    let neo4jSession = null;
+    let driver = null;
+    let session = null;
     let graphData = { nodes: [], links: [] };
     
     try {
       console.log('Initializing Neo4j connection...');
-      neo4jDriver = neo4j.driver(
+      driver = neo4jDriver.driver(
         NEO4J_URI,
-        neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD)
+        neo4jDriver.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD)
       );
       
       // Verify connection
-      await neo4jDriver.verifyConnectivity();
+      await driver.verifyConnectivity();
       console.log('Neo4j connection verified successfully');
       
       // Create session
-      neo4jSession = neo4jDriver.session();
+      session = driver.session();
       
       // Query for the Person node and all connected nodes (1-2 levels deep)
-      const result = await neo4jSession.run(`
+      const result = await session.run(`
         MATCH (p:Person {visitorId: $visitorId})
         OPTIONAL MATCH (p)-[r1]-(level1)
         OPTIONAL MATCH (level1)-[r2]-(level2)
@@ -136,11 +136,11 @@ serve(async (req) => {
       console.error('Neo4j error:', neo4jError);
       throw new Error(`Neo4j error: ${neo4jError.message}`);
     } finally {
-      if (neo4jSession) {
-        await neo4jSession.close();
+      if (session) {
+        await session.close();
       }
-      if (neo4jDriver) {
-        await neo4jDriver.close();
+      if (driver) {
+        await driver.close();
       }
     }
     

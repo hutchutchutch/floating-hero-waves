@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Wrench } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import KnowledgeGraph from './KnowledgeGraph';
 
 interface WrenchIconProps {
@@ -80,7 +80,10 @@ const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
       </SheetTrigger>
       <SheetContent className="w-[85vw] sm:w-[600px] overflow-y-auto">
         <SheetHeader className="mb-4">
-          <SheetTitle className="text-xl">Happy and Fulfilling Life Knowledge Graph</SheetTitle>
+          <SheetTitle className="text-xl text-[#EFEEE2]">Happy and Fulfilling Life Knowledge Graph</SheetTitle>
+          <SheetDescription className="text-[#EFEEE2]/70">
+            This graph visualizes important concepts from your conversations
+          </SheetDescription>
         </SheetHeader>
         <KnowledgeGraph />
       </SheetContent>
