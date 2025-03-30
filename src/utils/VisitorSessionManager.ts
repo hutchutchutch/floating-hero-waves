@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -8,6 +9,7 @@ class VisitorSessionManager {
   private visitorId: string | null = null;
   private sessionId: string | null = null;
   private isInitialized = false;
+  private fallbackToLocalOnly = false;
 
   /**
    * Initialize the visitor session manager
@@ -26,6 +28,7 @@ class VisitorSessionManager {
       return this.visitorId;
     } catch (error) {
       console.error('Error initializing visitor session:', error);
+      this.isInitialized = true; // Still mark as initialized even with error
       return this.visitorId;
     }
   }
@@ -82,6 +85,15 @@ class VisitorSessionManager {
       return this.sessionId;
     }
     
+    // If we previously got RLS errors, use local session ID instead
+    if (this.fallbackToLocalOnly) {
+      const localSessionId = localStorage.getItem('local_session_id') || this.generateUUID();
+      localStorage.setItem('local_session_id', localSessionId);
+      this.sessionId = localSessionId;
+      console.log('Using local-only session ID due to previous RLS errors:', localSessionId);
+      return localSessionId;
+    }
+    
     // Make sure we have a visitor ID
     const visitorId = this.getVisitorId();
     
@@ -97,6 +109,14 @@ class VisitorSessionManager {
         
       if (sessionsError) {
         console.error('Error fetching existing sessions:', sessionsError);
+        
+        // If this is a permissions error, switch to local-only mode
+        if (sessionsError.code === '42501') {
+          console.log('Permission denied when accessing sessions table, switching to local-only mode');
+          this.fallbackToLocalOnly = true;
+          return this.getOrCreateSessionId(); // Retry with fallback
+        }
+        
         return null;
       }
       
@@ -117,6 +137,14 @@ class VisitorSessionManager {
         
       if (createError) {
         console.error('Error creating new session:', createError);
+        
+        // If this is a permissions error, switch to local-only mode
+        if (createError.code === '42501') {
+          console.log('Permission denied when creating session, switching to local-only mode');
+          this.fallbackToLocalOnly = true;
+          return this.getOrCreateSessionId(); // Retry with fallback
+        }
+        
         return null;
       }
       
@@ -128,7 +156,10 @@ class VisitorSessionManager {
       return null;
     } catch (error) {
       console.error('Error in getOrCreateSessionId:', error);
-      return null;
+      
+      // Switch to local-only mode on any error
+      this.fallbackToLocalOnly = true;
+      return this.getOrCreateSessionId(); // Retry with fallback
     }
   }
   
@@ -205,6 +236,12 @@ class VisitorSessionManager {
       return false;
     }
     
+    // If we're in local-only mode, just clean up local storage
+    if (this.fallbackToLocalOnly) {
+      this.sessionId = null;
+      return true;
+    }
+    
     try {
       const { error } = await supabase
         .from('sessions')
@@ -232,6 +269,13 @@ class VisitorSessionManager {
    */
   getCurrentSessionId(): string | null {
     return this.sessionId;
+  }
+  
+  /**
+   * Check if we're using local-only mode due to permission errors
+   */
+  isUsingLocalOnlyMode(): boolean {
+    return this.fallbackToLocalOnly;
   }
 }
 

@@ -115,7 +115,8 @@ export class AudioProcessor {
       const { data, error } = await supabase.functions.invoke('transcribe', {
         body: { 
           audio: base64Data,
-          apiKey: GROQ_API_KEY
+          apiKey: GROQ_API_KEY,
+          visitorId: localStorage.getItem('visitor_id')
         }
       });
 
@@ -147,6 +148,13 @@ export class AudioProcessor {
 
       if (error) {
         console.error('🔊 AudioProcessor: Error from transcribe function:', error);
+        
+        // Still pass any detected text if available to maintain functionality
+        if (data && data.text) {
+          console.log('🔊 AudioProcessor: Despite error, received transcription:', data.text);
+          this.processTranscriptionResult(data.text, estimatedDurationMs);
+        }
+        
         return;
       }
 
@@ -158,32 +166,42 @@ export class AudioProcessor {
         // Log the full response for debugging
         console.log('🔊 AudioProcessor: Full response data:', JSON.stringify(data));
         
-        // Save the transcription to the database
-        if (data.text !== this.lastTranscriptionText) {
-          console.log('🔊 AudioProcessor: Saving new transcription to database');
-          const transcription = await recordingManager.saveTranscription(
-            data.text, 
-            estimatedDurationMs / 1000 // Convert to seconds
-          );
-          
-          if (transcription) {
-            console.log('🔊 AudioProcessor: Transcription saved with ID:', transcription.id);
-            this.lastTranscriptionText = data.text;
-          }
-        } else {
-          console.log('🔊 AudioProcessor: Skipping database save, transcription unchanged');
-        }
-        
-        if (this.onTranscriptionCallback) {
-          console.log('🔊 AudioProcessor: Calling transcription callback with text:', data.text);
-          this.onTranscriptionCallback(data.text);
-        }
+        this.processTranscriptionResult(data.text, estimatedDurationMs);
       } else {
         console.log('🔊 AudioProcessor: No transcription text in response:', data);
         console.log('🔊 AudioProcessor: Full response data for debugging:', JSON.stringify(data));
       }
     } catch (error) {
       console.error('🔊 AudioProcessor: Error processing audio chunk:', error);
+    }
+  }
+  
+  /**
+   * Process a transcription result and store it
+   */
+  private async processTranscriptionResult(text: string, estimatedDurationMs: number): Promise<void> {
+    // Save the transcription to the database if different from last one
+    if (text !== this.lastTranscriptionText) {
+      console.log('🔊 AudioProcessor: Saving new transcription to database or local storage');
+      const transcription = await recordingManager.saveTranscription(
+        text, 
+        estimatedDurationMs / 1000 // Convert to seconds
+      );
+      
+      if (transcription) {
+        console.log('🔊 AudioProcessor: Transcription saved with ID:', transcription.id);
+        console.log('🔊 AudioProcessor: Using ' + 
+          (recordingManager.isUsingLocalStorageMode() ? 'local storage' : 'database') + 
+          ' for transcription storage');
+        this.lastTranscriptionText = text;
+      }
+    } else {
+      console.log('🔊 AudioProcessor: Skipping save, transcription unchanged');
+    }
+    
+    if (this.onTranscriptionCallback) {
+      console.log('🔊 AudioProcessor: Calling transcription callback with text:', text);
+      this.onTranscriptionCallback(text);
     }
   }
 }

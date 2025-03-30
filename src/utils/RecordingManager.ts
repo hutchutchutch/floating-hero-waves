@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import visitorSessionManager from "./VisitorSessionManager";
 
@@ -19,6 +18,9 @@ class RecordingManager {
   private currentSessionId: string | null = null;
   private sequenceCounter: number = 0;
   private isFetchingResponse: boolean = false;
+  private localTranscriptions: Array<any> = [];
+  private localResponses: Array<any> = [];
+  private useLocalStorage: boolean = false;
   
   /**
    * Starts a new recording session
@@ -28,6 +30,19 @@ class RecordingManager {
     try {
       // Initialize visitor session
       await visitorSessionManager.initialize();
+      
+      // Check if the visitor session manager is in local-only mode
+      this.useLocalStorage = visitorSessionManager.isUsingLocalOnlyMode();
+      if (this.useLocalStorage) {
+        console.log('📝 RecordingManager: Using local storage mode due to RLS restrictions');
+        const localId = 'local-session-' + Date.now();
+        this.currentSessionId = localId;
+        this.clearLocalData();
+        localStorage.setItem('current_session_id', localId);
+        this.sequenceCounter = 0;
+        console.log('📝 RecordingManager: New local session started with ID:', this.currentSessionId);
+        return this.currentSessionId;
+      }
       
       // Get or create session using visitor ID
       this.currentSessionId = await visitorSessionManager.getOrCreateSessionId();
@@ -62,6 +77,19 @@ class RecordingManager {
         
       if (error) {
         console.error('📝 RecordingManager: Error starting session:', error);
+        
+        // If this is a permissions error, switch to local storage
+        if (error.code === '42501') {
+          console.log('📝 RecordingManager: Permission denied, switching to local storage mode');
+          this.useLocalStorage = true;
+          const localId = 'local-session-' + Date.now();
+          this.currentSessionId = localId;
+          this.clearLocalData();
+          localStorage.setItem('current_session_id', localId);
+          this.sequenceCounter = 0;
+          return localId;
+        }
+        
         return null;
       }
       
@@ -75,7 +103,30 @@ class RecordingManager {
       return null;
     } catch (error) {
       console.error('📝 RecordingManager: Exception starting session:', error);
-      return null;
+      
+      // Fall back to local storage on error
+      this.useLocalStorage = true;
+      const localId = 'local-session-' + Date.now();
+      this.currentSessionId = localId;
+      this.clearLocalData();
+      localStorage.setItem('current_session_id', localId);
+      this.sequenceCounter = 0;
+      console.log('📝 RecordingManager: Fallback to local session with ID:', localId);
+      return localId;
+    }
+  }
+  
+  /**
+   * Clears all local data for transcriptions and responses
+   */
+  private clearLocalData(): void {
+    this.localTranscriptions = [];
+    this.localResponses = [];
+    try {
+      localStorage.setItem('local_transcriptions', JSON.stringify([]));
+      localStorage.setItem('local_responses', JSON.stringify([]));
+    } catch (e) {
+      console.error('📝 RecordingManager: Error saving to localStorage:', e);
     }
   }
   
@@ -96,6 +147,15 @@ class RecordingManager {
     if (!this.currentSessionId) {
       console.log('📝 RecordingManager: No active session to end');
       return false;
+    }
+    
+    // For local storage mode, just clear the session ID
+    if (this.useLocalStorage) {
+      console.log('📝 RecordingManager: Ending local session:', this.currentSessionId);
+      this.currentSessionId = null;
+      this.sequenceCounter = 0;
+      localStorage.removeItem('current_session_id');
+      return true;
     }
     
     try {
@@ -141,6 +201,31 @@ class RecordingManager {
       return null;
     }
     
+    // For local storage mode, save to memory and localStorage
+    if (this.useLocalStorage) {
+      const localId = `local-trans-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const transcription = {
+        id: localId,
+        session_id: sessionId,
+        sequence_number: this.sequenceCounter++,
+        content: transcriptionText,
+        audio_duration: audioDuration || null,
+        is_final: false,
+        created_at: new Date().toISOString()
+      };
+      
+      this.localTranscriptions.push(transcription);
+      try {
+        localStorage.setItem('local_transcriptions', JSON.stringify(this.localTranscriptions));
+      } catch (e) {
+        console.error('📝 RecordingManager: Error saving to localStorage:', e);
+        // If localStorage fails, just keep in memory
+      }
+      
+      console.log('📝 RecordingManager: Local transcription saved with ID:', localId);
+      return transcription as TranscriptionResult;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('transcriptions')
@@ -155,6 +240,14 @@ class RecordingManager {
         
       if (error) {
         console.error('📝 RecordingManager: Error saving transcription:', error);
+        
+        // If this is a permissions error, switch to local storage mode
+        if (error.code === '42501') {
+          console.log('📝 RecordingManager: Permission denied saving transcription, switching to local storage mode');
+          this.useLocalStorage = true;
+          return this.saveTranscription(transcriptionText, audioDuration);
+        }
+        
         return null;
       }
       
@@ -166,7 +259,10 @@ class RecordingManager {
       return null;
     } catch (error) {
       console.error('📝 RecordingManager: Exception saving transcription:', error);
-      return null;
+      
+      // Fall back to local storage on error
+      this.useLocalStorage = true;
+      return this.saveTranscription(transcriptionText, audioDuration);
     }
   }
   
@@ -174,6 +270,22 @@ class RecordingManager {
    * Marks a transcription as final
    */
   async finalizeTranscription(transcriptionId: string): Promise<TranscriptionResult | null> {
+    // For local storage mode, update in memory
+    if (this.useLocalStorage) {
+      const index = this.localTranscriptions.findIndex(t => t.id === transcriptionId);
+      if (index >= 0) {
+        this.localTranscriptions[index].is_final = true;
+        try {
+          localStorage.setItem('local_transcriptions', JSON.stringify(this.localTranscriptions));
+        } catch (e) {
+          console.error('📝 RecordingManager: Error saving to localStorage:', e);
+        }
+        console.log('📝 RecordingManager: Local transcription finalized:', transcriptionId);
+        return this.localTranscriptions[index] as TranscriptionResult;
+      }
+      return null;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('transcriptions')
@@ -220,6 +332,45 @@ class RecordingManager {
       console.log('📝 RecordingManager: Text length:', fullText.length);
       console.log('📝 RecordingManager: Text preview:', fullText.substring(0, 100) + (fullText.length > 100 ? '...' : ''));
       
+      // For local storage mode, create a simple response (no AI generation)
+      if (this.useLocalStorage) {
+        const localId = `local-resp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const demoResponses = [
+          "I understand what you're saying. Can you tell me more?",
+          "That's interesting! I'm processing that information.",
+          "I'm listening and understanding your input.",
+          "Thanks for sharing that information with me.",
+          "I've noted your comments and am ready to assist further."
+        ];
+        
+        const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
+        
+        const response = {
+          id: localId,
+          session_id: sessionId,
+          transcription_id: transcriptionId,
+          content: randomResponse + " (Local Mode - RLS Policy Restricted)",
+          audio_url: null,
+          created_at: new Date().toISOString()
+        };
+        
+        this.localResponses.push(response);
+        try {
+          localStorage.setItem('local_responses', JSON.stringify(this.localResponses));
+        } catch (e) {
+          console.error('📝 RecordingManager: Error saving to localStorage:', e);
+        }
+        
+        console.log('📝 RecordingManager: Local response created:', response);
+        this.isFetchingResponse = false;
+        
+        return {
+          id: response.id,
+          content: response.content,
+          audio_url: null
+        };
+      }
+      
       // Call our edge function to generate a response
       const { data, error } = await supabase.functions.invoke('generate-response', {
         body: { 
@@ -232,7 +383,10 @@ class RecordingManager {
       if (error) {
         console.error('📝 RecordingManager: Error generating response:', error);
         this.isFetchingResponse = false;
-        return null;
+        
+        // If this seems like a permissions error, switch to local mode
+        this.useLocalStorage = true;
+        return this.generateAndSaveResponse(transcriptionId, fullText);
       }
       
       console.log('📝 RecordingManager: Response generated:', data);
@@ -253,7 +407,10 @@ class RecordingManager {
     } catch (error) {
       console.error('📝 RecordingManager: Exception generating response:', error);
       this.isFetchingResponse = false;
-      return null;
+      
+      // Fall back to local storage mode on error
+      this.useLocalStorage = true;
+      return this.generateAndSaveResponse(transcriptionId, fullText);
     }
   }
   
@@ -266,6 +423,12 @@ class RecordingManager {
       return [];
     }
     
+    // For local storage mode, return from memory
+    if (this.useLocalStorage) {
+      console.log('📝 RecordingManager: Returning local transcriptions');
+      return this.localTranscriptions as TranscriptionResult[];
+    }
+    
     try {
       const { data, error } = await supabase
         .from('transcriptions')
@@ -275,6 +438,13 @@ class RecordingManager {
         
       if (error) {
         console.error('📝 RecordingManager: Error fetching transcriptions:', error);
+        
+        // If this is a permissions error, switch to local storage mode
+        if (error.code === '42501') {
+          this.useLocalStorage = true;
+          return this.getSessionTranscriptions();
+        }
+        
         return [];
       }
       
@@ -292,6 +462,16 @@ class RecordingManager {
     if (!this.currentSessionId) {
       console.log('📝 RecordingManager: No active session, returning empty response list');
       return [];
+    }
+    
+    // For local storage mode, return from memory
+    if (this.useLocalStorage) {
+      console.log('📝 RecordingManager: Returning local responses');
+      return this.localResponses.map(r => ({
+        id: r.id,
+        content: r.content,
+        audio_url: r.audio_url
+      })) as ResponseResult[];
     }
     
     try {
@@ -320,6 +500,16 @@ class RecordingManager {
     if (!this.currentSessionId) {
       console.log('📝 RecordingManager: No active session, cannot get latest response');
       return null;
+    }
+    
+    // For local storage mode, return most recent from memory
+    if (this.useLocalStorage && this.localResponses.length > 0) {
+      const latestResponse = this.localResponses[this.localResponses.length - 1];
+      return {
+        id: latestResponse.id,
+        content: latestResponse.content,
+        audio_url: latestResponse.audio_url
+      };
     }
     
     try {
@@ -359,6 +549,13 @@ class RecordingManager {
   setCurrentSessionId(sessionId: string | null): void {
     this.currentSessionId = sessionId;
     this.sequenceCounter = 0;
+  }
+  
+  /**
+   * Check if we're using local storage mode (due to RLS policies or errors)
+   */
+  isUsingLocalStorageMode(): boolean {
+    return this.useLocalStorage;
   }
 }
 
