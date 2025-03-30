@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 
 interface TextTranscriptionProps {
@@ -12,13 +13,6 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
   useEffect(() => {
     if (text && isActive) {
       console.log('🔍 TextTranscription - Received new transcription text:', text);
-      console.log('🔍 TextTranscription - Text length:', text.length);
-      console.log('🔍 TextTranscription - Text word count:', text.split(' ').length);
-      
-      // Debug if we're getting "Thank you." by default
-      if (text === "Thank you.") {
-        console.warn('🔍 TextTranscription - Detected "Thank you." message - this may be a default response');
-      }
       
       setCombinedText(prev => {
         // Check if this is just a repetition of what we already have
@@ -27,31 +21,43 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
           return prev;
         }
         
-        // Check if the new text contains the previous text as a prefix
-        // This indicates a streaming update where we're getting an expanded version
-        if (prev && text.startsWith(prev)) {
-          console.log('🔍 TextTranscription - Detected streaming update, replacing with new text');
+        // If the previous text is empty, just use the new text
+        if (!prev) {
+          console.log('🔍 TextTranscription - First text segment received');
           return text;
         }
         
-        // Check if we have a partial overlap where some of the previous text
-        // is repeated at the beginning of the new text
-        const words = prev.split(' ');
-        if (words.length > 3) {
-          // Try to find partial overlaps with the last few words
-          for (let i = Math.min(5, words.length - 1); i >= 1; i--) {
-            const tailPhrase = words.slice(words.length - i).join(' ');
-            if (text.startsWith(tailPhrase)) {
-              console.log(`🔍 TextTranscription - Found partial overlap: "${tailPhrase}"`);
-              return prev + text.substring(tailPhrase.length);
-            }
+        // If the new text fully contains the previous text, it's a complete update
+        if (text.includes(prev)) {
+          console.log('🔍 TextTranscription - Complete update detected');
+          return text;
+        }
+        
+        // Instead of looking for the last few words, try to find the longest common prefix
+        // This handles cases where the streaming API returns overlapping chunks
+        let commonIndex = 0;
+        const minLength = Math.min(prev.length, text.length);
+        
+        // Find where the new text starts to differ
+        for (let i = 0; i < minLength; i++) {
+          if (text[i] === prev[i]) {
+            commonIndex = i + 1;
+          } else {
+            break;
           }
         }
         
-        // Otherwise append the new text with a space
-        const combined = prev ? `${prev} ${text}` : text;
-        console.log('🔍 TextTranscription - Updated accumulated text:', combined);
-        return combined;
+        // If there's a significant overlap (more than 5 characters)
+        if (commonIndex > 5) {
+          console.log(`🔍 TextTranscription - Found overlap of ${commonIndex} characters`);
+          // Only append the non-overlapping part
+          return prev + text.substring(commonIndex);
+        }
+        
+        // If no significant overlap and not a complete update, 
+        // append with a space to avoid words running together
+        console.log('🔍 TextTranscription - No significant overlap, appending with space');
+        return `${prev} ${text}`;
       });
     }
 
@@ -70,7 +76,7 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
     <div className="absolute left-0 right-0 bottom-16 overflow-y-auto max-h-60 flex flex-col-reverse items-center">
       <div className="max-w-2xl w-full px-4 mb-4">
         <div 
-          className="bg-white/10 backdrop-blur-md text-white rounded-lg px-4 py-3 max-w-[85%] ml-auto animate-slide-up whitespace-pre-wrap break-words"
+          className="bg-black/40 backdrop-blur-lg text-white rounded-xl px-5 py-4 max-w-[90%] ml-auto animate-slide-up whitespace-pre-wrap break-words border border-white/10 shadow-lg"
         >
           {combinedText}
         </div>
