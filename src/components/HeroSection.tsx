@@ -1,0 +1,34 @@
+
+import React, { Suspense } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import FloatingObjects from './FloatingObjects';
+import MicrophoneButton from './MicrophoneButton';
+
+const HeroSection: React.FC = () => {
+  const handleMicToggle = (isActive: boolean) => {
+    console.log('Microphone is', isActive ? 'active' : 'inactive');
+    // Here you could add actual microphone functionality
+  };
+
+  return (
+    <div className="relative h-screen w-screen overflow-hidden bg-gradient-to-b from-cosmic-dark to-cosmic-blue/40">
+      {/* 3D Canvas Background */}
+      <div className="absolute inset-0">
+        <Canvas camera={{ position: [0, 0, 8], fov: 60 }}>
+          <Suspense fallback={null}>
+            <FloatingObjects />
+            <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
+          </Suspense>
+        </Canvas>
+      </div>
+      
+      {/* Central Content */}
+      <div className="relative h-full w-full flex items-center justify-center">
+        <MicrophoneButton onToggle={handleMicToggle} />
+      </div>
+    </div>
+  );
+};
+
+export default HeroSection;
