@@ -10,6 +10,7 @@ import { TextShimmer } from '@/components/ui/text-shimmer';
 import { useToast } from "@/components/ui/use-toast";
 import VoiceWaveform from './VoiceWaveform';
 import WrenchIcon from './WrenchIcon';
+import { ResponseResult } from '@/utils/RecordingManager';
 
 const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
@@ -17,6 +18,9 @@ const HeroSection: React.FC = () => {
   const [transcribedText, setTranscribedText] = useState('');
   const [showGoAhead, setShowGoAhead] = useState(false);
   const [hasTranscribedContent, setHasTranscribedContent] = useState(false);
+  const [aiResponse, setAiResponse] = useState<ResponseResult | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
   const handleMicToggle = (isActive: boolean) => {
@@ -70,6 +74,57 @@ const HeroSection: React.FC = () => {
     }
   };
 
+  const handleAiResponse = (response: ResponseResult) => {
+    console.log('AI response received:', response);
+    setAiResponse(response);
+    
+    // Play audio if available
+    if (response.audio_url) {
+      if (audioRef.current) {
+        audioRef.current.src = response.audio_url;
+        audioRef.current.play().catch(error => {
+          console.error('Error playing audio:', error);
+        });
+        setIsAudioPlaying(true);
+      }
+    }
+    
+    toast({
+      title: "AI Response",
+      description: "AI has processed your input and generated a response",
+      duration: 3000,
+    });
+  };
+
+  // Handle audio playback events
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      
+      audioRef.current.onplay = () => {
+        console.log('Audio started playing');
+        setIsAudioPlaying(true);
+      };
+      
+      audioRef.current.onended = () => {
+        console.log('Audio finished playing');
+        setIsAudioPlaying(false);
+      };
+      
+      audioRef.current.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        setIsAudioPlaying(false);
+      };
+    }
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowGoAhead(true);
@@ -95,6 +150,24 @@ const HeroSection: React.FC = () => {
       {/* Display transcribed text as a single message */}
       <TextTranscription isActive={microphoneActive} text={transcribedText} />
       
+      {/* Display AI response */}
+      {aiResponse && (
+        <div className="absolute left-0 right-0 top-16 overflow-y-auto max-h-60 flex flex-col items-center">
+          <div className="max-w-2xl w-full px-4 mb-4">
+            <div 
+              className={`bg-green-500/20 backdrop-blur-md text-white rounded-xl px-5 py-4 max-w-[90%] mr-auto animate-slide-up whitespace-pre-wrap break-words border border-green-500/30 ${isAudioPlaying ? 'border-green-400/70 shadow-lg shadow-green-500/20 animate-pulse' : ''}`}
+            >
+              {aiResponse.content}
+              {aiResponse.audio_url && isAudioPlaying && (
+                <div className="mt-2 text-xs text-white/70 animate-pulse">
+                  ♪ Playing audio response...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Wrench icon that appears after first transcription */}
       <WrenchIcon visible={hasTranscribedContent} />
       
@@ -104,6 +177,7 @@ const HeroSection: React.FC = () => {
             onToggle={handleMicToggle} 
             onAudioData={handleAudioData} 
             onTranscription={handleTranscription}
+            onAiResponse={handleAiResponse}
           />
           {showGoAhead && (
             <div className="h-4 mt-4 transition-opacity duration-[2000ms] ease-in-out animate-fade-in">

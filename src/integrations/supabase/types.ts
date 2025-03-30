@@ -9,7 +9,110 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      responses: {
+        Row: {
+          audio_url: string | null
+          content: string
+          created_at: string | null
+          id: string
+          session_id: string | null
+          transcription_id: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          session_id?: string | null
+          transcription_id?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          session_id?: string | null
+          transcription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "responses_transcription_id_fkey"
+            columns: ["transcription_id"]
+            isOneToOne: false
+            referencedRelation: "transcriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      transcriptions: {
+        Row: {
+          audio_duration: number | null
+          content: string
+          created_at: string | null
+          id: string
+          is_final: boolean | null
+          sequence_number: number
+          session_id: string | null
+        }
+        Insert: {
+          audio_duration?: number | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_final?: boolean | null
+          sequence_number: number
+          session_id?: string | null
+        }
+        Update: {
+          audio_duration?: number | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_final?: boolean | null
+          sequence_number?: number
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RATE_LIMIT_ERROR_MARKER } from "./constants";
 import { RateLimiter } from "./RateLimiter";
+import recordingManager from "../RecordingManager";
 
 /**
  * Handles processing of audio chunks and transcription
@@ -10,6 +11,7 @@ export class AudioProcessor {
   private recordedChunks: Blob[] = [];
   private chunkCounter = 0;
   private rateLimiter: RateLimiter;
+  private lastTranscriptionText: string = '';
   
   constructor(
     private readonly onTranscriptionCallback: ((text: string) => void) | null = null
@@ -84,6 +86,11 @@ export class AudioProcessor {
   private async processAudioChunk(chunk: Blob): Promise<void> {
     console.log(`🔊 AudioProcessor: Processing audio chunk: ${chunk.size} bytes, type: ${chunk.type}`);
     try {
+      // Calculate an approximate duration based on audio size and bit rate
+      // This is a rough estimate - 32 kbps is a common bit rate for speech
+      const estimatedDurationMs = (chunk.size * 8) / (32 * 1000);
+      console.log(`🔊 AudioProcessor: Estimated audio duration: ${estimatedDurationMs.toFixed(2)} ms`);
+      
       // Convert blob to base64
       const arrayBuffer = await chunk.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
@@ -150,6 +157,22 @@ export class AudioProcessor {
         
         // Log the full response for debugging
         console.log('🔊 AudioProcessor: Full response data:', JSON.stringify(data));
+        
+        // Save the transcription to the database
+        if (data.text !== this.lastTranscriptionText) {
+          console.log('🔊 AudioProcessor: Saving new transcription to database');
+          const transcription = await recordingManager.saveTranscription(
+            data.text, 
+            estimatedDurationMs / 1000 // Convert to seconds
+          );
+          
+          if (transcription) {
+            console.log('🔊 AudioProcessor: Transcription saved with ID:', transcription.id);
+            this.lastTranscriptionText = data.text;
+          }
+        } else {
+          console.log('🔊 AudioProcessor: Skipping database save, transcription unchanged');
+        }
         
         if (this.onTranscriptionCallback) {
           console.log('🔊 AudioProcessor: Calling transcription callback with text:', data.text);
