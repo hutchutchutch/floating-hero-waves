@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Mic, Pause, Sparkle } from 'lucide-react';
+import { Pause } from 'lucide-react';
 import audioRecorder from '../utils/AudioRecorder';
 
 type MicrophoneButtonProps = {
@@ -56,11 +56,10 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({ onToggle, onAudioDa
       >
         <div className="relative">
           {isActive ? (
-            <Pause className="text-white w-8 h-8 sm:w-10 sm:h-10" />
+            <Pause className="text-white w-10 h-10 sm:w-12 sm:h-12" />
           ) : (
-            <Mic className="text-white w-8 h-8 sm:w-10 sm:h-10" />
+            <img src="/bulb.svg" alt="Light bulb" className="w-10 h-10 sm:w-12 sm:h-12" />
           )}
-          <Sparkle className="absolute -top-3 -right-3 h-3 w-3 text-white opacity-80" />
         </div>
       </button>
     </div>

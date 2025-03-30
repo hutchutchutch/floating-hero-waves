@@ -23,13 +23,6 @@ const HeroSection: React.FC = () => {
     
     if (!isActive) {
       setTranscribedText('');
-    } else if (!isGroqKeyConfigured()) {
-      toast({
-        title: "GROQ API Key Missing",
-        description: "Please add VITE_GROQ_API_KEY to your .env file",
-        variant: "destructive",
-        duration: 5000
-      });
     }
   };
 
@@ -72,12 +65,6 @@ const HeroSection: React.FC = () => {
   }, [microphoneActive]);
 
   useEffect(() => {
-    if (!isGroqKeyConfigured()) {
-      console.warn("GROQ API Key not configured. WebRTC streaming will not work.");
-    }
-  }, []);
-
-  useEffect(() => {
     const timer = setTimeout(() => {
       setShowGoAhead(true);
     }, 5000);
@@ -104,7 +91,7 @@ const HeroSection: React.FC = () => {
           {showGoAhead && (
             <div className="h-4 mt-4 transition-opacity duration-[2000ms] ease-in-out animate-fade-in">
               <TextShimmer
-                className="text-sm font-medium [--base-color:rgba(255,255,255,0.1)] [--base-gradient-color:#ffffff]"
+                className="text-xs font-medium [--base-color:rgba(239,238,226,0.1)] [--base-gradient-color:#efeee2]"
                 duration={3}
               >
                 Go ahead
