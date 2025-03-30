@@ -15,6 +15,7 @@ const HeroSection: React.FC = () => {
   const [microphoneActive, setMicrophoneActive] = useState(false);
   const [audioData, setAudioData] = useState<Uint8Array | null>(null);
   const [transcribedText, setTranscribedText] = useState('');
+  const [showGoAhead, setShowGoAhead] = useState(false);
   const { toast } = useToast();
 
   const handleMicToggle = (isActive: boolean) => {
@@ -78,6 +79,15 @@ const HeroSection: React.FC = () => {
     }
   }, []);
 
+  // Fade in "Go ahead" text after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowGoAhead(true);
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#221F26]">
       <div className="absolute inset-0">
@@ -94,15 +104,17 @@ const HeroSection: React.FC = () => {
       <div className="relative h-full w-full flex flex-col items-center justify-center z-10">
         <div className="flex flex-col items-center">
           <MicrophoneButton onToggle={handleMicToggle} onAudioData={handleAudioData} />
-          <div className="h-4 flex items-center gap-2 mt-4">
-            <TextShimmer
-              className="text-xl font-medium text-white [--base-color:#ffffff] [--base-gradient-color:#5924ed]"
-              duration={3}
-            >
-              Go ahead
-            </TextShimmer>
-            <Sparkles className="w-5 h-5 text-white animate-pulse-soft" />
-          </div>
+          {showGoAhead && (
+            <div className="h-4 flex items-center gap-2 mt-4 animate-fade-in">
+              <TextShimmer
+                className="text-xl font-medium text-white [--base-color:#ffffff] [--base-gradient-color:#5924ed]"
+                duration={3}
+              >
+                Go ahead
+              </TextShimmer>
+              <Sparkles className="w-5 h-5 text-white animate-pulse-soft" />
+            </div>
+          )}
         </div>
       </div>
     </div>
