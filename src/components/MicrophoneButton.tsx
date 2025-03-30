@@ -20,15 +20,16 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   const animationRef = useRef<number | null>(null);
   const lastTranscriptionRef = useRef<string>('');
   const { toast } = useToast();
+  const transcriptionCountRef = useRef<number>(0);
 
   const handleClick = async () => {
     const newState = !isActive;
-    console.log(`Microphone button clicked, setting state to: ${newState}`);
+    console.log(`🎤 Microphone button clicked, setting state to: ${newState}`);
     setIsActive(newState);
     
     if (newState) {
       // Start recording
-      console.log('Attempting to start recording...');
+      console.log('🎤 Attempting to start recording...');
       const success = await audioRecorder.startRecording(
         (data) => {
           if (onAudioData) {
@@ -38,14 +39,16 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
             setAudioLevel(normalizedLevel);
             
             if (Math.random() < 0.02) { // Only log ~2% of audio packets to avoid console spam
-              console.log(`Audio data received: ${data.length} bytes, average amplitude: ${average.toFixed(2)}`);
+              console.log(`🎤 Audio data received: ${data.length} bytes, average amplitude: ${average.toFixed(2)}`);
             }
             onAudioData(data);
           }
         },
         (text) => {
           if (onTranscription && text) {
-            console.log(`Raw transcription received: "${text}"`);
+            transcriptionCountRef.current += 1;
+            console.log(`🎤 Raw transcription #${transcriptionCountRef.current} received: "${text}"`);
+            console.log(`🎤 Previous transcription: "${lastTranscriptionRef.current}"`);
             
             // Only pass new text to the parent component
             lastTranscriptionRef.current = text;
@@ -55,7 +58,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
       );
       
       if (!success) {
-        console.error('Failed to start recording');
+        console.error('🎤 Failed to start recording');
         toast({
           title: "Recording Failed",
           description: "Could not access microphone",
@@ -64,25 +67,27 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
         // If recording failed, set back to inactive
         setIsActive(false);
       } else {
-        console.log('Recording started successfully');
+        console.log('🎤 Recording started successfully');
         toast({
           title: "Recording Started",
           description: "Microphone is now active",
         });
         // Reset last transcription when starting a new recording
         lastTranscriptionRef.current = '';
+        transcriptionCountRef.current = 0;
       }
     } else {
       // Stop recording
-      console.log('Stopping recording...');
+      console.log('🎤 Stopping recording...');
       audioRecorder.stopRecording();
-      console.log('Recording stopped');
+      console.log('🎤 Recording stopped');
       toast({
         title: "Recording Stopped",
         description: "Microphone is now inactive",
       });
       // Reset last transcription when stopping
       lastTranscriptionRef.current = '';
+      transcriptionCountRef.current = 0;
     }
     
     if (onToggle) {
@@ -94,7 +99,7 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
   useEffect(() => {
     return () => {
       if (isActive) {
-        console.log('Component unmounting, stopping recording...');
+        console.log('🎤 Component unmounting, stopping recording...');
         audioRecorder.stopRecording();
       }
       if (animationRef.current) {
@@ -119,19 +124,9 @@ const MicrophoneButton: React.FC<MicrophoneButtonProps> = ({
           )}
         </div>
         
-        {/* Audio level indicator rings */}
+        {/* Audio level indicator ring */}
         {isActive && (
-          <>
-            <div 
-              className="absolute inset-0 rounded-full border-2 border-white/30 animate-ping"
-              style={{ 
-                transform: `scale(${1 + (audioLevel / 100)})`,
-                opacity: audioLevel / 200 + 0.3,
-                animationDuration: `${0.8 - (audioLevel / 200)}s`
-              }}
-            />
-            <div className="absolute top-2 -right-2 bg-green-500 h-3 w-3 rounded-full animate-pulse" />
-          </>
+          <div className="absolute top-2 -right-2 bg-green-500 h-3 w-3 rounded-full animate-pulse" />
         )}
       </button>
       

@@ -23,6 +23,7 @@ serve(async (req) => {
       throw new Error('GROQ API key not configured in edge function secrets');
     } else {
       console.log("Found GROQ API key with length:", GROQ_API_KEY.length);
+      console.log("GROQ API key first 4 chars:", GROQ_API_KEY.substring(0, 4));
     }
 
     const requestData = await req.json();
@@ -42,6 +43,10 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
     console.log(`Converted to binary: ${bytes.length} bytes`);
+
+    // Log a sample of the binary data (first few bytes)
+    const sampleBytes = bytes.slice(0, Math.min(20, bytes.length));
+    console.log("Sample of binary data (first few bytes):", Array.from(sampleBytes));
 
     // Prepare audio blob with explicit mimetype that Whisper accepts
     const audioBlob = new Blob([bytes], { type: 'audio/wav' });
@@ -63,21 +68,28 @@ serve(async (req) => {
       body: formData
     });
 
+    const responseText = await response.text();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`GROQ API error: Status ${response.status}, Response: ${errorText}`);
+      console.error(`GROQ API error: Status ${response.status}, Response: ${responseText}`);
       throw new Error(`GROQ API error: ${response.status} ${response.statusText}`);
     }
 
-    const result = await response.json();
-    console.log('Transcription result:', result);
+    try {
+      const result = JSON.parse(responseText);
+      console.log('Transcription result:', result);
 
-    return new Response(
-      JSON.stringify({ text: result.text }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+      return new Response(
+        JSON.stringify({ text: result.text }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    } catch (parseError) {
+      console.error('Error parsing JSON response:', parseError);
+      console.error('Raw response text:', responseText);
+      throw new Error('Failed to parse transcription response');
+    }
   } catch (error) {
     console.error('Transcription error:', error);
     return new Response(

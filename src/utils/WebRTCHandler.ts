@@ -12,6 +12,7 @@ class WebRTCHandler {
     this.connectToGroq = this.connectToGroq.bind(this);
     this.sendAudioData = this.sendAudioData.bind(this);
     this.disconnect = this.disconnect.bind(this);
+    this.isConnected = this.isConnected.bind(this);
   }
 
   async init(onMessage: (message: any) => void): Promise<boolean> {
@@ -31,11 +32,11 @@ class WebRTCHandler {
       // Set up data channel for sending audio
       this.dataChannel = this.connection.createDataChannel('audio');
       this.dataChannel.onopen = () => {
-        console.log('WebRTC data channel open');
+        console.log('🌐 WebRTC: Data channel open');
         this.isConnected = true;
       };
       this.dataChannel.onclose = () => {
-        console.log('WebRTC data channel closed');
+        console.log('🌐 WebRTC: Data channel closed');
         this.isConnected = false;
       };
       
@@ -48,28 +49,49 @@ class WebRTCHandler {
               const data = JSON.parse(messageEvent.data);
               this.onMessageCallback(data);
             } catch (error) {
-              console.error('Error parsing message:', error);
+              console.error('🌐 WebRTC: Error parsing message:', error);
             }
           }
         };
       };
       
+      // Monitor connection state
+      this.connection.oniceconnectionstatechange = () => {
+        console.log('🌐 WebRTC: ICE connection state changed to:', this.connection?.iceConnectionState);
+        if (this.connection?.iceConnectionState === 'connected' || 
+            this.connection?.iceConnectionState === 'completed') {
+          this.isConnected = true;
+        } else {
+          this.isConnected = false;
+        }
+      };
+      
+      this.connection.connectionstatechange = () => {
+        console.log('🌐 WebRTC: Connection state changed to:', this.connection?.connectionState);
+      };
+      
       return true;
     } catch (error) {
-      console.error('Error initializing WebRTC:', error);
+      console.error('🌐 WebRTC: Error initializing WebRTC:', error);
       return false;
     }
+  }
+  
+  isConnected(): boolean {
+    return this.isConnected && 
+           this.dataChannel !== null && 
+           this.dataChannel.readyState === 'open';
   }
 
   async connectToGroq(): Promise<boolean> {
     if (!this.connection) {
-      console.error('Connection not initialized');
+      console.error('🌐 WebRTC: Connection not initialized');
       return false;
     }
 
     try {
       if (!isGroqKeyConfigured()) {
-        console.error('GROQ API key not configured in .env file');
+        console.error('🌐 WebRTC: GROQ API key not configured in .env file');
         return false;
       }
 
@@ -78,6 +100,7 @@ class WebRTCHandler {
       await this.connection.setLocalDescription(offer);
 
       // Send the offer to GROQ API and get answer
+      console.log('🌐 WebRTC: Sending offer to GROQ API');
       const response = await fetch('https://api.groq.com/openai/v1/audio/webrtc', {
         method: 'POST',
         headers: {
@@ -90,36 +113,48 @@ class WebRTCHandler {
         })
       });
 
+      const responseText = await response.text();
+      console.log('🌐 WebRTC: Received response from GROQ API:', 
+                  response.status, response.statusText);
+      
       if (!response.ok) {
+        console.error('🌐 WebRTC: Error response from GROQ:', responseText);
         throw new Error(`Failed to connect to GROQ: ${response.statusText}`);
       }
 
-      const answerData = await response.json();
-      
-      // Set remote description from GROQ
-      await this.connection.setRemoteDescription(new RTCSessionDescription({
-        sdp: answerData.sdp,
-        type: answerData.type
-      }));
+      try {
+        const answerData = JSON.parse(responseText);
+        console.log('🌐 WebRTC: Parsed answer data from GROQ');
+        
+        // Set remote description from GROQ
+        await this.connection.setRemoteDescription(new RTCSessionDescription({
+          sdp: answerData.sdp,
+          type: answerData.type
+        }));
 
-      console.log('WebRTC connection established with GROQ');
-      return true;
+        console.log('🌐 WebRTC: Connection established with GROQ');
+        return true;
+      } catch (parseError) {
+        console.error('🌐 WebRTC: Error parsing response:', parseError);
+        console.error('🌐 WebRTC: Raw response text:', responseText);
+        throw new Error('Failed to parse WebRTC response');
+      }
     } catch (error) {
-      console.error('Error connecting to GROQ:', error);
+      console.error('🌐 WebRTC: Error connecting to GROQ:', error);
       return false;
     }
   }
 
   sendAudioData(audioData: Uint8Array): boolean {
-    if (!this.isConnected || !this.dataChannel) {
+    if (!this.isConnected()) {
       return false;
     }
 
     try {
-      this.dataChannel.send(audioData);
+      this.dataChannel?.send(audioData);
       return true;
     } catch (error) {
-      console.error('Error sending audio data:', error);
+      console.error('🌐 WebRTC: Error sending audio data:', error);
       return false;
     }
   }
@@ -137,6 +172,8 @@ class WebRTCHandler {
     this.connection = null;
     this.isConnected = false;
     this.onMessageCallback = null;
+    
+    console.log('🌐 WebRTC: Disconnected');
   }
 }
 

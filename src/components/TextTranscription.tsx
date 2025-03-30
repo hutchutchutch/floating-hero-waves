@@ -13,17 +13,19 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
   // Accumulate text during a recording session
   useEffect(() => {
     if (text && isActive) {
-      console.log('Received new transcription text:', text);
+      console.log('🔍 TextTranscription - Received new transcription text:', text);
+      console.log('🔍 TextTranscription - Current accumulated text:', allText);
+      
       setAllText(prev => {
         const combined = prev ? `${prev} ${text}` : text;
-        console.log('Updated accumulated text:', combined);
+        console.log('🔍 TextTranscription - Updated accumulated text:', combined);
         return combined;
       });
     }
 
     // Clear text when microphone is turned off
     if (!isActive) {
-      console.log('Microphone inactive, clearing transcription text');
+      console.log('🔍 TextTranscription - Microphone inactive, clearing transcription text');
       setAllText('');
       setTranscriptionLines([]);
     }
@@ -32,18 +34,21 @@ const TextTranscription: React.FC<TextTranscriptionProps> = ({ isActive, text })
   // Process accumulated text into lines whenever it changes
   useEffect(() => {
     if (allText) {
+      console.log('🔍 TextTranscription - Processing accumulated text:', allText);
+      
       // Split by periods or natural pauses to create lines
       const sentences = allText.split(/(?<=[.!?])\s+/);
-      console.log('Split accumulated text into sentences:', sentences);
+      console.log('🔍 TextTranscription - Split accumulated text into sentences:', sentences);
       
       if (sentences.length === 1 && !sentences[0].match(/[.!?]$/)) {
         // If we just have one incomplete sentence, show it as is
         setTranscriptionLines([sentences[0]]);
+        console.log('🔍 TextTranscription - Setting single incomplete sentence:', sentences[0]);
       } else {
         // Filter out any empty lines and limit to the last 5 meaningful sentences
         const filteredLines = sentences.filter(line => line.trim().length > 0);
         const lastLines = filteredLines.slice(Math.max(0, filteredLines.length - 5));
-        console.log('Final transcription lines to display:', lastLines);
+        console.log('🔍 TextTranscription - Final transcription lines to display:', lastLines);
         setTranscriptionLines(lastLines);
       }
     }
