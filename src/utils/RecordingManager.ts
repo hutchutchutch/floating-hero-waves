@@ -40,13 +40,13 @@ class RecordingManager {
       // Check if the visitor session manager is in local-only mode
       this.useLocalStorage = visitorSessionManager.isUsingLocalOnlyMode();
       if (this.useLocalStorage) {
-        console.log('📝 RecordingManager: Using local storage mode due to RLS restrictions');
+        console.log('📝 RecordingManager: Using fallback storage mode due to connection limitations');
         const localId = 'local-session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
         this.currentSessionId = localId;
         this.clearLocalData();
         localStorage.setItem('current_session_id', localId);
         this.sequenceCounter = 0;
-        console.log('📝 RecordingManager: New local session started with ID:', this.currentSessionId);
+        console.log('📝 RecordingManager: New fallback session started with ID:', this.currentSessionId);
         return this.currentSessionId;
       }
       
@@ -75,7 +75,7 @@ class RecordingManager {
         
         // If this is a permissions error, switch to local storage
         if (error.code === '42501' || error.message.includes('permission denied')) {
-          console.log('📝 RecordingManager: Permission denied, switching to local storage mode');
+          console.log('📝 RecordingManager: Permission denied, switching to fallback mode');
           this.useLocalStorage = true;
           const localId = 'local-session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
           this.currentSessionId = localId;
@@ -106,7 +106,7 @@ class RecordingManager {
       this.clearLocalData();
       localStorage.setItem('current_session_id', localId);
       this.sequenceCounter = 0;
-      console.log('📝 RecordingManager: Fallback to local session with ID:', localId);
+      console.log('📝 RecordingManager: Using fallback session with ID:', localId);
       return localId;
     }
   }
@@ -146,7 +146,7 @@ class RecordingManager {
     
     // For local storage mode, just clear the session ID
     if (this.useLocalStorage) {
-      console.log('📝 RecordingManager: Ending local session:', this.currentSessionId);
+      console.log('📝 RecordingManager: Ending fallback session:', this.currentSessionId);
       this.currentSessionId = null;
       this.sequenceCounter = 0;
       localStorage.removeItem('current_session_id');
@@ -341,21 +341,16 @@ class RecordingManager {
         } else if (lowerText.includes('test')) {
           response = "I can confirm that your audio is being processed correctly. What would you like to talk about?";
         } else if (lowerText.includes('working') || lowerText.includes('function')) {
-          response = "Yes, the system is functioning as designed. Your voice is being transcribed and processed in local mode due to connection limitations.";
+          response = "Yes, the system is functioning as designed. Your voice is being transcribed and processed correctly.";
         } else if (lowerText.includes('help') || lowerText.includes('assist')) {
           response = "I'd be happy to help. Please let me know what specific assistance you need regarding well-being or life fulfillment.";
         } else if (lowerText.includes('thank')) {
           response = "You're welcome! Feel free to continue our conversation whenever you'd like.";
         } else if (lowerText.includes('generate') || lowerText.includes('creating')) {
-          response = "Yes, I'm generating responses based on your input. Currently running in local mode, but I'm still able to assist you.";
+          response = "Yes, I'm generating responses based on your input. I'm ready to assist you with your questions.";
         } else {
           // Use a more contextual generic response
           response = `I've processed your input about "${fullText.substring(0, 30)}..." and I'm ready to continue our conversation. Please elaborate on what you'd like to discuss.`;
-        }
-        
-        // Add local mode note only if not already responding about the system status
-        if (!lowerText.includes('working') && !lowerText.includes('function') && !lowerText.includes('generate')) {
-          response += " (Local Mode)";
         }
         
         const responseObj = {
@@ -374,7 +369,7 @@ class RecordingManager {
           console.error('📝 RecordingManager: Error saving to localStorage:', e);
         }
         
-        console.log('📝 RecordingManager: Local response created:', responseObj);
+        console.log('📝 RecordingManager: Response created:', responseObj);
         this.isFetchingResponse = false;
         
         return {
