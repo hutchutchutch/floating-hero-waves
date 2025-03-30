@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
@@ -6,7 +7,6 @@ import { useGLTF, SpotLight } from '@react-three/drei';
 
 type ObjectProps = {
   position: [number, number, number];
-  color: string;
   scale: number;
   rotationSpeed: [number, number, number];
   floatSpeed: number;
@@ -15,46 +15,19 @@ type ObjectProps = {
 
 const FloatingObject: React.FC<ObjectProps> = ({ 
   position, 
-  color, 
   scale, 
   rotationSpeed, 
   floatSpeed,
   maxY
 }) => {
   const group = useRef<THREE.Group>(null!);
-  const { scene } = useGLTF('/pineapple.glb');
+  const { scene } = useGLTF('/garlic.glb');
   
   // Create a clone of the scene to avoid sharing materials across instances
-  const pineappleScene = useMemo(() => {
+  const garlicScene = useMemo(() => {
     const clonedScene = scene.clone();
-    
-    // Apply color tint to all meshes in the scene while preserving textures
-    clonedScene.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.material) {
-        // Clone the original material to avoid sharing
-        const originalMaterial = child.material.clone();
-        
-        // If the material has a map (texture), preserve it
-        if (originalMaterial instanceof THREE.MeshStandardMaterial) {
-          // Create a new material that preserves textures but adds color tint
-          const newMaterial = new THREE.MeshStandardMaterial({ 
-            map: originalMaterial.map,
-            normalMap: originalMaterial.normalMap,
-            roughnessMap: originalMaterial.roughnessMap,
-            metalnessMap: originalMaterial.metalnessMap,
-            // Apply the color as a tint
-            color: new THREE.Color(color),
-            transparent: true,
-            opacity: 0.8
-          });
-          
-          child.material = newMaterial;
-        }
-      }
-    });
-    
     return clonedScene;
-  }, [scene, color]);
+  }, [scene]);
   
   useFrame(() => {
     if (group.current) {
@@ -66,7 +39,7 @@ const FloatingObject: React.FC<ObjectProps> = ({
       // Move upward (slower floating)
       group.current.position.y += floatSpeed;
       
-      // Reset position when it goes too high, ensuring no pineapples touch the camera (z > 0.5)
+      // Reset position when it goes too high, ensuring no garlics touch the camera (z > 0.5)
       if (group.current.position.y > maxY) {
         group.current.position.y = -10;
         group.current.position.x = MathUtils.randFloatSpread(6);
@@ -77,7 +50,7 @@ const FloatingObject: React.FC<ObjectProps> = ({
 
   return (
     <group ref={group} position={position} scale={[scale, scale, scale]}>
-      <primitive object={pineappleScene} />
+      <primitive object={garlicScene} />
     </group>
   );
 };
@@ -100,24 +73,22 @@ const MainSpotlight = () => {
 
 const FloatingObjects: React.FC = () => {
   const objects = useMemo(() => {
-    const colors = ['#5924ed', '#2b78e4', '#f73585', '#b249f8', '#0f0920'];
     const items = [];
     
-    for (let i = 0; i < 18; i++) { // Increased number of pineapples
+    for (let i = 0; i < 18; i++) { // Keeping the same number of garlic objects
       items.push({
         position: [
           MathUtils.randFloatSpread(6),  // x (narrower spread)
           MathUtils.randFloatSpread(10) - 15,  // y (start below screen)
           -MathUtils.randFloat(0.5, 3),   // z (in front of camera, not touching)
         ] as [number, number, number],
-        color: colors[Math.floor(Math.random() * colors.length)],
-        scale: MathUtils.randFloat(1.2, 1.8),  // Even larger scale
+        scale: MathUtils.randFloat(1.2, 1.8),  // Same scale
         rotationSpeed: [
           MathUtils.randFloat(0.0002, 0.0005) * (Math.random() > 0.5 ? 1 : -1),
           MathUtils.randFloat(0.0002, 0.0005) * (Math.random() > 0.5 ? 1 : -1),
           MathUtils.randFloat(0.0002, 0.0005) * (Math.random() > 0.5 ? 1 : -1),
         ] as [number, number, number],
-        floatSpeed: MathUtils.randFloat(0.002, 0.005), // Even slower
+        floatSpeed: MathUtils.randFloat(0.002, 0.005), // Same float speed
         maxY: 15
       });
     }
@@ -125,8 +96,8 @@ const FloatingObjects: React.FC = () => {
     return items;
   }, []);
 
-  // Preload the pineapple model
-  useGLTF.preload('/pineapple.glb');
+  // Preload the garlic model
+  useGLTF.preload('/garlic.glb');
 
   return (
     <>
