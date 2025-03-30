@@ -62,23 +62,27 @@ const WrenchIcon: React.FC<WrenchIconProps> = ({ visible }) => {
     console.log('Sheet open state changed:', open);
   };
 
+  const handleWrenchClick = () => {
+    console.log('Wrench icon clicked');
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <div 
-          className="absolute top-6 right-6 p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors"
+          className="absolute top-6 right-6 p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors cursor-pointer"
           style={{ 
             opacity: opacity,
             transition: 'opacity 100ms linear',
-            cursor: 'pointer',
             zIndex: 50
           }}
-          onClick={() => console.log('Wrench icon clicked')}
+          onClick={handleWrenchClick}
+          aria-label="Open Knowledge Graph"
         >
           <Wrench className="w-6 h-6 text-[#EFEEE2]" />
         </div>
       </SheetTrigger>
-      <SheetContent className="w-[85vw] sm:w-[600px] overflow-y-auto">
+      <SheetContent className="w-[85vw] sm:w-[600px] overflow-y-auto bg-black/90 border-white/10">
         <SheetHeader className="mb-4">
           <SheetTitle className="text-xl text-[#EFEEE2]">Happy and Fulfilling Life Knowledge Graph</SheetTitle>
           <SheetDescription className="text-[#EFEEE2]/70">

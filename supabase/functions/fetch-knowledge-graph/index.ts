@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
-import neo4jDriver from "https://esm.sh/neo4j-driver@5.18.0";
+import { driver, auth } from "https://esm.sh/neo4j-driver@5.18.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,11 +17,10 @@ serve(async (req) => {
   try {
     const { visitorId } = await req.json();
     
-    if (!visitorId) {
-      throw new Error('Missing required field: visitorId');
-    }
+    // For demo purposes, use DEMO_USER if no visitor ID is provided
+    const effectiveVisitorId = visitorId || 'DEMO_USER';
     
-    console.log('Fetching knowledge graph for visitor:', visitorId);
+    console.log('Fetching knowledge graph for visitor:', effectiveVisitorId);
     
     // Initialize Neo4j connection
     const NEO4J_URI = Deno.env.get('NEO4J_URI') || '';
@@ -33,23 +32,23 @@ serve(async (req) => {
     }
     
     // Connect to Neo4j
-    let driver = null;
+    let neo4jDriver = null;
     let session = null;
     let graphData = { nodes: [], links: [] };
     
     try {
       console.log('Initializing Neo4j connection...');
-      driver = neo4jDriver.driver(
+      neo4jDriver = driver(
         NEO4J_URI,
-        neo4jDriver.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD)
+        auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD)
       );
       
       // Verify connection
-      await driver.verifyConnectivity();
+      await neo4jDriver.verifyConnectivity();
       console.log('Neo4j connection verified successfully');
       
       // Create session
-      session = driver.session();
+      session = neo4jDriver.session();
       
       // Query for the Person node and all connected nodes (1-2 levels deep)
       const result = await session.run(`
@@ -114,7 +113,7 @@ serve(async (req) => {
           }] as links
           
         RETURN {nodes: nodes, links: links} as graphData
-      `, { visitorId });
+      `, { visitorId: effectiveVisitorId });
       
       if (result.records.length > 0) {
         graphData = result.records[0].get('graphData');
@@ -123,7 +122,7 @@ serve(async (req) => {
         // If no data found, return empty graph with just the person
         graphData = {
           nodes: [{
-            id: `person-${visitorId}`,
+            id: `person-${effectiveVisitorId}`,
             name: 'You',
             group: 'Person',
             description: null
@@ -139,8 +138,8 @@ serve(async (req) => {
       if (session) {
         await session.close();
       }
-      if (driver) {
-        await driver.close();
+      if (neo4jDriver) {
+        await neo4jDriver.close();
       }
     }
     

@@ -27,7 +27,8 @@ interface GraphData {
 }
 
 const fetchKnowledgeGraphData = async (): Promise<GraphData> => {
-  const visitorId = visitorSessionManager.getVisitorId();
+  // Get the visitor ID or use DEMO_USER as fallback
+  const visitorId = visitorSessionManager.getVisitorId() || 'DEMO_USER';
   
   try {
     const { data, error } = await supabase.functions.invoke('fetch-knowledge-graph', {
@@ -40,6 +41,7 @@ const fetchKnowledgeGraphData = async (): Promise<GraphData> => {
       throw new Error('Failed to fetch graph data');
     }
 
+    console.log('Received graph data:', data);
     return data;
   } catch (error) {
     console.error('Error fetching knowledge graph data:', error);
@@ -60,10 +62,10 @@ const KnowledgeGraph: React.FC = () => {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['knowledgeGraph'],
     queryFn: fetchKnowledgeGraphData,
-    retry: 2,
+    retry: 3,
     retryDelay: 1000
   });
 
@@ -205,14 +207,48 @@ const KnowledgeGraph: React.FC = () => {
     };
   }, [data, dimensions]);
 
+  // Add a refresh button
+  const handleRefresh = () => {
+    refetch();
+    toast.info('Refreshing knowledge graph...');
+  };
+
   if (isLoading) return <div className="p-4 text-center text-[#EFEEE2]">Loading knowledge graph...</div>;
-  if (error) return <div className="p-4 text-center text-red-500">Error loading knowledge graph. Please try again later.</div>;
+  if (error) return (
+    <div className="p-4 text-center">
+      <p className="text-red-500 mb-4">Error loading knowledge graph. Please try again later.</p>
+      <button 
+        onClick={handleRefresh}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+      >
+        Retry
+      </button>
+    </div>
+  );
   if (!data || data.nodes.length === 0) {
-    return <div className="p-4 text-center text-[#EFEEE2]">No knowledge graph data available yet. Continue conversations to build your personal knowledge graph.</div>;
+    return (
+      <div className="p-4 text-center">
+        <p className="text-[#EFEEE2] mb-4">No knowledge graph data available yet. Continue conversations to build your personal knowledge graph.</p>
+        <button 
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className="p-2">
+      <div className="flex justify-end mb-2">
+        <button 
+          onClick={handleRefresh}
+          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+        >
+          Refresh Graph
+        </button>
+      </div>
       <div className="knowledge-graph-container border border-white/10 rounded-lg overflow-hidden">
         <svg ref={svgRef} width={dimensions.width} height={dimensions.height} className="bg-black/30" />
         <div 
@@ -226,6 +262,7 @@ const KnowledgeGraph: React.FC = () => {
       </div>
       <div className="mt-4 text-sm text-[#EFEEE2]/70">
         <p>This graph visualizes concepts from your conversations. Drag nodes to explore connections.</p>
+        {data && <p className="mt-1">Showing {data.nodes.length} nodes and {data.links.length} connections</p>}
       </div>
     </div>
   );
