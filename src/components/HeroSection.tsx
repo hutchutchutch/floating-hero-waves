@@ -24,8 +24,9 @@ const HeroSection: React.FC = () => {
       </div>
       
       {/* Central Content */}
-      <div className="relative h-full w-full flex items-center justify-center">
+      <div className="relative h-full w-full flex flex-col items-center justify-center">
         <MicrophoneButton onToggle={handleMicToggle} />
+        <p className="text-white text-xl mt-4 animate-pulse">what's up?</p>
       </div>
     </div>
   );
