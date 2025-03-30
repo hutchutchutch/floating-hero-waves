@@ -56,8 +56,8 @@ const FloatingObject: React.FC<ObjectProps> = ({
       // Reset position when it goes too high
       if (group.current.position.y > maxY) {
         group.current.position.y = -10;
-        group.current.position.x = MathUtils.randFloatSpread(10);
-        group.current.position.z = MathUtils.randFloatSpread(6);
+        group.current.position.x = MathUtils.randFloatSpread(8);
+        group.current.position.z = MathUtils.randFloatSpread(4);
       }
     }
   });
@@ -69,14 +69,14 @@ const FloatingObject: React.FC<ObjectProps> = ({
   );
 };
 
-// Spotlight component
+// Spotlight component with increased intensity
 const MainSpotlight = () => {
   return (
     <SpotLight
       position={[0, 15, 0]}
       angle={0.5}
       penumbra={0.5}
-      intensity={1}
+      intensity={3} // Increased intensity from 1 to 3
       color="#FEF7CD"
       castShadow
       attenuation={5}
@@ -90,21 +90,21 @@ const FloatingObjects: React.FC = () => {
     const colors = ['#5924ed', '#2b78e4', '#f73585', '#b249f8', '#0f0920'];
     const items = [];
     
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) { // Increased from 10 to 15 pineapples
       items.push({
         position: [
-          MathUtils.randFloatSpread(10),  // x (even narrower spread)
+          MathUtils.randFloatSpread(8),  // x (even narrower spread)
           MathUtils.randFloatSpread(10) - 15,  // y (start below screen)
-          MathUtils.randFloatSpread(6),   // z (much closer to camera)
+          MathUtils.randFloatSpread(4),   // z (even closer to camera)
         ] as [number, number, number],
         color: colors[Math.floor(Math.random() * colors.length)],
-        scale: MathUtils.randFloat(0.6, 1.0),  // Much larger scale
+        scale: MathUtils.randFloat(1.0, 1.5),  // Even larger scale
         rotationSpeed: [
-          MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),  // Even slower rotation
+          MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),
           MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),
           MathUtils.randFloat(0.0003, 0.0007) * (Math.random() > 0.5 ? 1 : -1),
         ] as [number, number, number],
-        floatSpeed: MathUtils.randFloat(0.003, 0.007),  // Even slower floating
+        floatSpeed: MathUtils.randFloat(0.003, 0.007),
         maxY: 15
       });
     }

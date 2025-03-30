@@ -95,6 +95,12 @@ export default {
 				'pulse-soft': {
 					'0%, 100%': { transform: 'scale(1)' },
 					'50%': { transform: 'scale(1.05)' }
+				},
+				'vibrate': {
+					'0%, 80%, 100%': { transform: 'translateX(0)' },
+					'85%': { transform: 'translateX(-1px)' },
+					'90%': { transform: 'translateX(1px)' },
+					'95%': { transform: 'translateX(-1px)' }
 				}
 			},
 			animation: {
