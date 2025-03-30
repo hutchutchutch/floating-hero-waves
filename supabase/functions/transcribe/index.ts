@@ -22,6 +22,14 @@ serve(async (req) => {
     
     // Use API key from request or fall back to environment variable with the updated name
     const GROQ_API_KEY = apiKey || Deno.env.get('VITE_GROQ_API_KEY');
+    
+    // Debug logging for API key availability
+    console.log("Checking for GROQ API key sources:");
+    console.log("- From request:", apiKey ? "Present (length: " + apiKey.length + ")" : "Not provided");
+    console.log("- From VITE_GROQ_API_KEY env:", Deno.env.get('VITE_GROQ_API_KEY') ? "Present" : "Not found");
+    console.log("- From GROQ_API_KEY env (legacy):", Deno.env.get('GROQ_API_KEY') ? "Present" : "Not found");
+    console.log("- Final GROQ_API_KEY status:", GROQ_API_KEY ? "Available" : "Not available");
+    
     if (!GROQ_API_KEY) {
       console.error("GROQ API key not provided in request and not configured in edge function secrets");
       throw new Error('GROQ API key not available');

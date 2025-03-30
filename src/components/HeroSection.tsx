@@ -8,7 +8,6 @@ import FadingText from './FadingText';
 import TextTranscription from './TextTranscription';
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import { useToast } from "@/components/ui/use-toast";
-import { isGroqKeyConfigured } from '../config/apiKeys';
 import VoiceWaveform from './VoiceWaveform';
 import WrenchIcon from './WrenchIcon';
 
@@ -19,18 +18,6 @@ const HeroSection: React.FC = () => {
   const [showGoAhead, setShowGoAhead] = useState(false);
   const [hasTranscribedContent, setHasTranscribedContent] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Check if GROQ API key is configured
-    if (!isGroqKeyConfigured()) {
-      toast({
-        title: "GROQ API Key Missing",
-        description: "Please add your GROQ_API_KEY to the Supabase Edge Function secrets.",
-        variant: "destructive",
-        duration: 10000,
-      });
-    }
-  }, [toast]);
 
   const handleMicToggle = (isActive: boolean) => {
     console.log('Microphone is', isActive ? 'active' : 'inactive');
